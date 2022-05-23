@@ -5,9 +5,9 @@ import okhttp3.Cookie;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 import scaffolding.ClientUtils;
 import scaffolding.InMemCookieJar;
 
@@ -28,7 +28,7 @@ public class HeaderProxyingTest extends BaseEndToEndTest {
 
     @Test
     public void viaNameIsSetCorrectly() throws IOException {
-        Assume.assumeTrue("This version of the JDK HTTP client does not allow the Via header to be set so skipping test", ClientUtils.jdkHttpClientSupportsHeader("via"));
+        Assumptions.assumeTrue(ClientUtils.jdkHttpClientSupportsHeader("via"), "This version of the JDK HTTP client does not allow the Via header to be set so skipping test");
         this.targetServer = httpServer()
             .addHandler(Method.GET, "/", (request, response, pathParams) -> {
                 response.write("via: " + request.headers().getAll("via"));
@@ -46,7 +46,7 @@ public class HeaderProxyingTest extends BaseEndToEndTest {
         for (String via : invalid) {
             try {
                 crankerRouter().withViaName(via);
-                Assert.fail(via + " should not work as a via name");
+                Assertions.fail(via + " should not work as a via name");
             } catch (IllegalArgumentException e) {
                 // good!
             }

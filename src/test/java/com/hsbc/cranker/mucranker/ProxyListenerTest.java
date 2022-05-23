@@ -7,7 +7,7 @@ import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import scaffolding.ClientUtils;
 
 import javax.ws.rs.WebApplicationException;
@@ -25,7 +25,7 @@ import static io.muserver.MuServerBuilder.httpServer;
 import static java.util.Collections.singletonList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static scaffolding.AssertUtils.assertEventually;
 import static scaffolding.ClientUtils.call;
 import static scaffolding.ClientUtils.request;
@@ -304,7 +304,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
 
     }
 
-    @Test(timeout = 30000)
+    @Test
     public void canGetRequestBodyAfterSentAndGetResponseBodyAfterReceiver() throws Exception {
         final ByteArrayOutputStream reqBody = new ByteArrayOutputStream();
         final ByteArrayOutputStream resBody = new ByteArrayOutputStream();

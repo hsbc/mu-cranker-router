@@ -6,9 +6,9 @@ import io.muserver.Method;
 import io.muserver.MuServer;
 import io.muserver.ResponseState;
 import okhttp3.Response;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -80,7 +80,7 @@ public class TimeoutTest {
         try (Response resp = call(request(routerServer.uri().resolve("/my-app/send-chunk-then-sleep")))) {
             assertThat(resp.code(), is(200));
             resp.body().string();
-            Assert.fail("should throw exception already.");
+            Assertions.fail("should throw exception already.");
         } catch (IOException expected) {
             assertThat(expected instanceof EOFException, is(true));
         }
@@ -151,7 +151,7 @@ public class TimeoutTest {
 
         long callerTimeout = 400L;
         try (Response response = call(request(routerServer.uri().resolve(url)), Duration.ofMillis(callerTimeout))) {
-            Assert.fail("Call should have timed out");
+            Assertions.fail("Call should have timed out");
         } catch (Exception e) {
             // expected
         } finally {
@@ -163,7 +163,7 @@ public class TimeoutTest {
 
 
 
-    @After
+    @AfterEach
     public void cleanup() throws Exception {
         if (connector != null) connector.stop().get(20, TimeUnit.SECONDS);
         if (target != null) target.stop();

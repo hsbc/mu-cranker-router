@@ -8,9 +8,9 @@ import okhttp3.MediaType;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.internal.Util;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import scaffolding.StringUtils;
 
 import java.io.IOException;
@@ -153,7 +153,7 @@ public class CrankerRouterHandlerTest {
         CrankerConnector connector = null;
         try {
             connector = startConnector("");
-            Assert.fail("it should throw exception");
+            Assertions.fail("it should throw exception");
         } catch (Throwable throwable) {
             assertThat(throwable.getClass().getName(), is("java.lang.IllegalArgumentException"));
             assertThat(throwable.getMessage(), is("Routes must contain only letters, numbers, underscores or hyphens"));
@@ -241,7 +241,7 @@ public class CrankerRouterHandlerTest {
         }
     }
 
-    @After
+    @AfterEach
     public void cleanup() {
         if (connector != null) swallowException(() -> connector.stop().get(5, TimeUnit.SECONDS));
         if (target != null) swallowException(target::stop);

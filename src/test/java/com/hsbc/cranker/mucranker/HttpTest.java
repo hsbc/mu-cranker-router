@@ -6,9 +6,9 @@ import io.muserver.MuServer;
 import io.muserver.Mutils;
 import io.muserver.handlers.ResourceHandlerBuilder;
 import okhttp3.Response;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import scaffolding.ClientUtils;
 import scaffolding.RawClient;
 import scaffolding.StringUtils;
@@ -59,7 +59,7 @@ public class HttpTest {
     private static CrankerConnector connector = BaseEndToEndTest.startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, router);
 
 
-    @AfterClass
+    @AfterAll
     public static void stop() {
         swallowException(() -> connector.stop().get(30, TimeUnit.SECONDS));
         swallowException(targetServer::stop);
@@ -158,7 +158,7 @@ public class HttpTest {
             .header("Accept-Encoding", "gzip"))) {
             assertThat(response.code(), is(200));
             String respText = new String(decompress(response.body().bytes()), UTF_8);
-            Assert.assertEquals(StringUtils.LARGE_TXT, respText);
+            Assertions.assertEquals(StringUtils.LARGE_TXT, respText);
         }
     }
 

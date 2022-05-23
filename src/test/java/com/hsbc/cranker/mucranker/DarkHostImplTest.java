@@ -1,6 +1,7 @@
 package com.hsbc.cranker.mucranker;
 
-import org.junit.Test;
+
+import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;
 import java.time.Instant;

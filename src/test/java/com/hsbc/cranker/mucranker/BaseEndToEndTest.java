@@ -3,8 +3,7 @@ package com.hsbc.cranker.mucranker;
 import com.hsbc.cranker.jdkconnector.*;
 import io.muserver.MuServer;
 import io.muserver.MuServerBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,7 +61,6 @@ public abstract class BaseEndToEndTest {
         }
     }
 
-    @NotNull
     public static CrankerConnector startConnector(String targetServiceName, MuServer target, MuServer... registrationRouters) {
         List<URI> uris = Stream.of(registrationRouters)
             .map(s -> URI.create("ws" + s.uri().toString().substring(4)))
@@ -89,7 +87,7 @@ public abstract class BaseEndToEndTest {
         return httpsServer();
     }
 
-    @After
+    @AfterEach
     public void stop() {
         if (connector != null) swallowException(() -> connector.stop().get(10, TimeUnit.SECONDS));
         if (targetServer != null) swallowException(targetServer::stop);

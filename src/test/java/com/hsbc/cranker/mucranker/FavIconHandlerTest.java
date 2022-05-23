@@ -2,7 +2,7 @@ package com.hsbc.cranker.mucranker;
 
 import io.muserver.MuServer;
 import okhttp3.Response;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 

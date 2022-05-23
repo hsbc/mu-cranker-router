@@ -2,7 +2,7 @@ package com.hsbc.cranker.mucranker;
 
 import io.muserver.Method;
 import okhttp3.Response;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

@@ -5,9 +5,9 @@ import io.muserver.MuServer;
 import io.muserver.handlers.ResourceHandlerBuilder;
 import okhttp3.Response;
 import org.jetbrains.annotations.NotNull;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import scaffolding.StringUtils;
 
 import java.net.InetAddress;
@@ -48,7 +48,7 @@ public class DarkModeTest {
     private static CrankerConnector connector = BaseEndToEndTest.startConnectorAndWaitForRegistration(cranker, "*", targetServer, crankerServer);
 
 
-    @AfterClass
+    @AfterAll
     public static void stop() {
         swallowException(() -> connector.stop().get(30, TimeUnit.SECONDS));
         swallowException(targetServer::stop);
@@ -56,7 +56,7 @@ public class DarkModeTest {
         swallowException(cranker::stop);
     }
 
-    @After
+    @AfterEach
     public void cleanUpDarkMode() {
         for (DarkHost darkHost : darkModeManager.darkHosts()) {
             darkModeManager.disableDarkMode(darkHost);

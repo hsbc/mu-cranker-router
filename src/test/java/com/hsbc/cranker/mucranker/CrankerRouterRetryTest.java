@@ -4,9 +4,9 @@ import com.hsbc.cranker.jdkconnector.CrankerConnector;
 import io.muserver.MuServer;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 import java.net.SocketTimeoutException;
 import java.util.concurrent.TimeUnit;
@@ -65,7 +65,7 @@ public class CrankerRouterRetryTest {
         // it should keep throwing timeout exception before connector available
         for (int i = 0; i < 10; i++) {
             try (Response ignored = client.newCall(request(router.uri().resolve("/something/blah")).build()).execute()) {
-                Assert.fail(String.format("it should timeout, but status=%s, body=%s", ignored.code(), ignored.body().string()));
+                Assertions.fail(String.format("it should timeout, but status=%s, body=%s", ignored.code(), ignored.body().string()));
             } catch (Exception e) {
                 assertThat(e instanceof SocketTimeoutException, is(true));
             }
@@ -84,7 +84,7 @@ public class CrankerRouterRetryTest {
                 assertThat(response.body().string(), is("OK"));
             } catch (Exception e) {
                 e.printStackTrace();
-                Assert.fail("it should not throw exception but got " + e);
+                Assertions.fail("it should not throw exception but got " + e);
             }
         }
         assertThat(counter.get(), is(10));
@@ -95,7 +95,7 @@ public class CrankerRouterRetryTest {
         assertEventually(() -> crankerRouter.collectInfo().service("something").get().connectors().get(0).connections().size(), is(2));
     }
 
-    @After
+    @AfterEach
     public void cleanup() {
         if (connector != null) swallowException(() -> connector.stop().get(5, TimeUnit.SECONDS));
         if (target != null) swallowException(target::stop);

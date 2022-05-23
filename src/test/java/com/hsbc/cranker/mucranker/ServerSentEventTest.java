@@ -3,8 +3,8 @@ package com.hsbc.cranker.mucranker;
 import io.muserver.Http2ConfigBuilder;
 import io.muserver.Method;
 import io.muserver.SsePublisher;
-import org.junit.After;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import scaffolding.SseTestClient;
 
 import java.util.concurrent.TimeUnit;
@@ -19,7 +19,7 @@ public class ServerSentEventTest extends BaseEndToEndTest {
 
     private SseTestClient client;
 
-    @After
+    @AfterEach
     public void after() {
         if (client != null) swallowException(client::stop);
     }

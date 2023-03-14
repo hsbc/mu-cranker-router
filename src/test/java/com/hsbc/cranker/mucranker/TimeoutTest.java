@@ -1,7 +1,7 @@
 package com.hsbc.cranker.mucranker;
 
-import com.hsbc.cranker.jdkconnector.ConnectorSocket;
-import com.hsbc.cranker.jdkconnector.CrankerConnector;
+import com.hsbc.cranker.connector.ConnectorSocket;
+import com.hsbc.cranker.connector.CrankerConnector;
 import io.muserver.Method;
 import io.muserver.MuServer;
 import io.muserver.ResponseState;
@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.EOFException;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.net.http.WebSocket;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
@@ -19,7 +21,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static com.hsbc.cranker.jdkconnector.ConnectorSocket.State.IDLE;
+import static com.hsbc.cranker.connector.ConnectorSocket.State.IDLE;
 import static com.hsbc.cranker.mucranker.CrankerRouterBuilder.crankerRouter;
 import static io.muserver.MuServerBuilder.httpServer;
 import static io.muserver.MuServerBuilder.httpsServer;
@@ -112,9 +114,14 @@ public class TimeoutTest {
         final Collection<ConnectorSocket> idleSockets = connector.routers().get(0).idleSockets();
         assertThat(idleSockets.size(), is(2));
 
+        // Stop the connector's webclient before the connector can do a graceful shutdown
+        final Field websocketField = Class.forName("com.hsbc.cranker.connector.ConnectorSocketImpl").getDeclaredField("webSocket");
+        websocketField.setAccessible(true);
+
         for (ConnectorSocket socket : idleSockets) {
             assertEventually(socket::state, is(IDLE));
-            socket.abort();
+            WebSocket websocket = (WebSocket) websocketField.get(socket);
+            websocket.abort();
         }
 
         // without stopping the connector
@@ -165,7 +172,7 @@ public class TimeoutTest {
 
     @AfterEach
     public void cleanup() throws Exception {
-        if (connector != null) connector.stop().get(20, TimeUnit.SECONDS);
+        if (connector != null) connector.stop(20, TimeUnit.SECONDS);
         if (target != null) target.stop();
         routerServer.stop();
         if (router != null) router.stop();

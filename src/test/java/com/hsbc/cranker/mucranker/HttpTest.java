@@ -1,6 +1,6 @@
 package com.hsbc.cranker.mucranker;
 
-import com.hsbc.cranker.jdkconnector.CrankerConnector;
+import com.hsbc.cranker.connector.CrankerConnector;
 import io.muserver.Method;
 import io.muserver.MuServer;
 import io.muserver.Mutils;
@@ -61,7 +61,7 @@ public class HttpTest {
 
     @AfterAll
     public static void stop() {
-        swallowException(() -> connector.stop().get(30, TimeUnit.SECONDS));
+        swallowException(() -> connector.stop(30, TimeUnit.SECONDS));
         swallowException(targetServer::stop);
         swallowException(registrationServer::stop);
         swallowException(router::stop);
@@ -110,7 +110,7 @@ public class HttpTest {
         assertEventually(() -> crankerRouter.idleConnectionCount(), is(2));
         CrankerConnector connector2 = BaseEndToEndTest.startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, router);
         assertEventually(() -> crankerRouter.idleConnectionCount(), is(4));
-        connector2.stop().get(20, TimeUnit.SECONDS);
+        connector2.stop(20, TimeUnit.SECONDS);
         assertEventually(() -> crankerRouter.idleConnectionCount(), is(2));
         call(request(router.uri().resolve("/static/hello.html"))).close();
         assertEventually(() -> crankerRouter.idleConnectionCount(), is(2));

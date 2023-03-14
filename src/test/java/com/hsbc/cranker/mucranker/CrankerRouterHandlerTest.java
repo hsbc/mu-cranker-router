@@ -1,6 +1,6 @@
 package com.hsbc.cranker.mucranker;
 
-import com.hsbc.cranker.jdkconnector.CrankerConnector;
+import com.hsbc.cranker.connector.CrankerConnector;
 import io.muserver.ContentTypes;
 import io.muserver.Method;
 import io.muserver.MuServer;
@@ -15,7 +15,6 @@ import scaffolding.StringUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static com.hsbc.cranker.mucranker.BaseEndToEndTest.startConnectorAndWaitForRegistration;
@@ -30,12 +29,12 @@ import static scaffolding.ClientUtils.request;
 
 public class CrankerRouterHandlerTest {
 
-    private CrankerRouter router = crankerRouter().start();
-    private MuServer routerServer = httpsServer()
+    private final CrankerRouter router = crankerRouter().start();
+    private final MuServer routerServer = httpsServer()
         .withGzipEnabled(false)
         .addHandler(router.createHttpHandler())
         .start();
-    private MuServer registrationServer = httpsServer()
+    private final MuServer registrationServer = httpsServer()
         .addHandler(router.createRegistrationHandler()).start();
     private CrankerConnector connector;
     private MuServer target;
@@ -138,7 +137,7 @@ public class CrankerRouterHandlerTest {
                 assertThat(resp.body().string(), is("Got GET /something-else/blah%20blah and query some value"));
             }
         }
-        catchAllConnectorWithEmptyString.stop();
+        assertThat(catchAllConnectorWithEmptyString.stop(20, TimeUnit.SECONDS), is(true));
     }
 
     @Test
@@ -158,7 +157,7 @@ public class CrankerRouterHandlerTest {
             assertThat(throwable.getClass().getName(), is("java.lang.IllegalArgumentException"));
             assertThat(throwable.getMessage(), is("Routes must contain only letters, numbers, underscores or hyphens"));
         } finally {
-            if (connector != null) connector.stop().get(5, TimeUnit.SECONDS);
+            if (connector != null) connector.stop(10, TimeUnit.SECONDS);
         }
     }
 
@@ -179,11 +178,9 @@ public class CrankerRouterHandlerTest {
             assertThat(resp.code(), is(200));
         }
 
-        final CompletableFuture<Void> stopFuture = catchAll.stop();
-        stopFuture.get(20, TimeUnit.SECONDS);
-        assertThat(stopFuture.isCompletedExceptionally(), is(false));
+        assertThat(catchAll.stop(20, TimeUnit.SECONDS), is(true));
         try (Response resp = call(request(routerServer.uri().resolve("/blah.txt")))) {
-            assertThat(resp.code(), is(503));
+            assertThat("Got " + resp.body().string(), resp.code(), is(503));
         }
     }
 
@@ -215,8 +212,8 @@ public class CrankerRouterHandlerTest {
             assertThat(resp.body().string(), is("OK blah"));
         }
 
-        connectorCatchAll.stop();
-        connectorBlah.stop();
+        connectorCatchAll.stop(20, TimeUnit.SECONDS);
+        connectorBlah.stop(20, TimeUnit.SECONDS);
         serverCatchAll.stop();
         serverBlah.stop();
     }
@@ -243,7 +240,7 @@ public class CrankerRouterHandlerTest {
 
     @AfterEach
     public void cleanup() {
-        if (connector != null) swallowException(() -> connector.stop().get(5, TimeUnit.SECONDS));
+        if (connector != null) swallowException(() -> connector.stop(5, TimeUnit.SECONDS));
         if (target != null) swallowException(target::stop);
         if (registrationServer != null) swallowException(registrationServer::stop);
         if (routerServer != null) swallowException(routerServer::stop);

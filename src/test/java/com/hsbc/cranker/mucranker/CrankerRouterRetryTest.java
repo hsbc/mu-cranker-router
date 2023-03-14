@@ -1,6 +1,6 @@
 package com.hsbc.cranker.mucranker;
 
-import com.hsbc.cranker.jdkconnector.CrankerConnector;
+import com.hsbc.cranker.connector.CrankerConnector;
 import io.muserver.MuServer;
 import okhttp3.OkHttpClient;
 import okhttp3.Response;
@@ -53,7 +53,7 @@ public class CrankerRouterRetryTest {
         connector = startConnector("something");
 
         // shutdown connector, which causing WebSocketFarm do retry
-        connector.stop().get(5, TimeUnit.SECONDS);
+        connector.stop(5, TimeUnit.SECONDS);
 
         // client timeout is 200 millis, which smaller than cranker wait timeout which is 1000 ms.
         OkHttpClient client = new OkHttpClient.Builder()
@@ -97,7 +97,7 @@ public class CrankerRouterRetryTest {
 
     @AfterEach
     public void cleanup() {
-        if (connector != null) swallowException(() -> connector.stop().get(5, TimeUnit.SECONDS));
+        if (connector != null) swallowException(() -> connector.stop(5, TimeUnit.SECONDS));
         if (target != null) swallowException(target::stop);
         if (crankerRouter != null) swallowException(crankerRouter::stop);
         if (router != null) swallowException(router::stop);

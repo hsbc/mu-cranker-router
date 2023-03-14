@@ -1,6 +1,6 @@
 package com.hsbc.cranker.mucranker;
 
-import com.hsbc.cranker.jdkconnector.CrankerConnector;
+import com.hsbc.cranker.connector.CrankerConnector;
 import io.muserver.MuServer;
 import io.muserver.handlers.ResourceHandlerBuilder;
 import okhttp3.Response;
@@ -50,7 +50,7 @@ public class DarkModeTest {
 
     @AfterAll
     public static void stop() {
-        swallowException(() -> connector.stop().get(30, TimeUnit.SECONDS));
+        swallowException(() -> connector.stop(30, TimeUnit.SECONDS));
         swallowException(targetServer::stop);
         swallowException(crankerServer::stop);
         swallowException(cranker::stop);

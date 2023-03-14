@@ -1,6 +1,6 @@
 package com.hsbc.cranker.mucranker;
 
-import com.hsbc.cranker.jdkconnector.CrankerConnector;
+import com.hsbc.cranker.connector.CrankerConnector;
 import io.muserver.Method;
 import io.muserver.MuServer;
 import okhttp3.Response;
@@ -124,8 +124,8 @@ public class RouterInfoTest {
 
     @AfterEach
     public void cleanup() {
-        if (connector != null) swallowException(() -> connector.stop().get(5, TimeUnit.SECONDS));
-        if (connector2 != null) swallowException(() -> connector2.stop().get(5, TimeUnit.SECONDS));
+        if (connector != null) swallowException(() -> connector.stop(5, TimeUnit.SECONDS));
+        if (connector2 != null) swallowException(() -> connector2.stop(5, TimeUnit.SECONDS));
         if (target != null) swallowException(target::stop);
         if (routerServer != null) swallowException(routerServer::stop);
         if (router != null) swallowException(router::stop);

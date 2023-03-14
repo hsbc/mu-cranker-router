@@ -1,6 +1,6 @@
 package com.hsbc.cranker.mucranker;
 
-import com.hsbc.cranker.jdkconnector.*;
+import com.hsbc.cranker.connector.*;
 import io.muserver.MuServer;
 import io.muserver.MuServerBuilder;
 import org.junit.jupiter.api.AfterEach;
@@ -89,7 +89,7 @@ public abstract class BaseEndToEndTest {
 
     @AfterEach
     public void stop() {
-        if (connector != null) swallowException(() -> connector.stop().get(10, TimeUnit.SECONDS));
+        if (connector != null) swallowException(() -> connector.stop(10, TimeUnit.SECONDS));
         if (targetServer != null) swallowException(targetServer::stop);
         if (crankerRouter != null) swallowException(crankerRouter::stop);
         if (router != null) swallowException(router::stop);

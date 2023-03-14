@@ -26,18 +26,20 @@ for handling incoming requests.
 Usage
 -----
 
-Add a dependency on mu-server:
+Add a dependency on `mu-cranker-router` and `mu-server`:
 
 ````xml
+<dependency>
+    <groupId>com.hsbc.cranker</groupId>
+    <artifactId>mu-cranker-router</artifactId>
+    <version>RELEASE</version>
+</dependency>
 <dependency>
     <groupId>io.muserver</groupId>
     <artifactId>mu-server</artifactId>
     <version>RELEASE</version>
 </dependency>
 ````
-
-And add this project to your classpath. For mu-server release versions, see the 
-[Mu Server docs](https://muserver.io/download).
 
 Cranker Routers consist of two parts: an HTTPS server which clients send requests to, and a Web Socket server
 that connectors register to.
@@ -56,12 +58,14 @@ public static void main(String[] args) {
         .start();
     
     // Start a server which will listen to connector registrations on a websocket
-    MuServer registrationServer = MuServerBuilder.httpsServer()
+    MuServer registrationServer = MuServerBuilder.muServer()
+        .withHttpsPort(8444)
         .addHandler(router.createRegistrationHandler())
         .start();
     
     // Start the server that clients will send HTTP requests to
-    MuServer httpServer = MuServerBuilder.httpsServer()
+    MuServer httpServer = MuServerBuilder.muServer()
+        .withHttpsPort(8443)
         .addHandler(router.createHttpHandler())
         .start();
     

@@ -14,9 +14,10 @@ public class DarkHostImplTest {
 
     @Test
     public void ipOrHostOrDomainAreTheSame() throws Exception {
-        DarkHost host = DarkHost.create(InetAddress.getByName("localhost"), Instant.now(), null);
+        DarkHost domain = DarkHost.create(InetAddress.getByName("localhost"), Instant.now(), null);
         DarkHost ip = DarkHost.create(InetAddress.getByName("127.0.0.1"), Instant.now(), null);
-        assertThat(ip.sameHost(host.address()), is(true));
+
+        assertThat(domain.sameHost(ip.address()), is(true));
     }
 
     @Test

@@ -26,12 +26,18 @@ public interface ConnectorConnection {
 
 class ConnectorConnectionImpl implements ConnectorConnection {
 
+    private final String domain;
     private final int port;
     private final String socketID;
+    private final String protocol;
+    private final int inflight;
 
-    ConnectorConnectionImpl(int port, String socketID) {
+    ConnectorConnectionImpl(String domain, int port, String socketID, String protocol, int inflight) {
+        this.domain = domain;
         this.port = port;
         this.socketID = socketID;
+        this.protocol = protocol;
+        this.inflight = inflight;
     }
 
     @Override
@@ -49,6 +55,13 @@ class ConnectorConnectionImpl implements ConnectorConnection {
         HashMap<String, Object> m = new HashMap<>();
         m.put("socketID", socketID);
         m.put("port", port);
+        m.put("protocol", protocol);
+        if (domain != null && !"*".equals(domain)) {
+            m.put("domain", domain);
+        }
+        if ("cranker_3.0".equals(protocol)) {
+            m.put("inflight", inflight);
+        }
         return m;
     }
 

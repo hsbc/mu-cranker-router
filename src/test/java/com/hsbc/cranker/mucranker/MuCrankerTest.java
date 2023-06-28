@@ -1,5 +1,6 @@
 package com.hsbc.cranker.mucranker;
 
+
 import org.junit.jupiter.api.Test;
 
 import static org.hamcrest.MatcherAssert.assertThat;

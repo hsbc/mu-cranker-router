@@ -22,6 +22,7 @@ public class FavIconHandlerTest {
 
         try (Response resp = call(request(server.uri().resolve("/favicon.ico")))) {
             assertThat(resp.code(), is(200));
+            assert resp.body() != null;
             assertThat(resp.body().bytes().length, is(15406));
         }
     }

@@ -3,18 +3,13 @@ package com.hsbc.cranker.mucranker;
 import io.muserver.MuRequest;
 import io.muserver.MuResponse;
 import io.muserver.Mutils;
-import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.util.HashedWheelTimer;
 import io.netty.util.Timeout;
-import io.netty.util.concurrent.DefaultThreadFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.ObjLongConsumer;
@@ -25,8 +20,11 @@ class WebSocketFarm {
 
     private static final String MU_ID = "muid";
 
+    private final RouteResolver routeResolver;
+
     private final Map<String, Queue<RouterSocket>> sockets = new ConcurrentHashMap<>();
     private final Map<String, Queue<WaitingSocketTask>> waitingTasks = new ConcurrentHashMap<>();
+    private final Map<String, Long> routeLastRemovalTimes = new ConcurrentHashMap<>();
 
     private final AtomicInteger idleCount = new AtomicInteger(0);
     private final AtomicInteger waitingTaskCount = new AtomicInteger(0);
@@ -35,10 +33,11 @@ class WebSocketFarm {
     private volatile boolean hasCatchAll = false;
     private final long maxWaitInMillis;
 
-    private final ExecutorService executor = new DefaultEventLoopGroup(1, new DefaultThreadFactory("websocket-farm-execution"));
-    private final HashedWheelTimer timer = new HashedWheelTimer(new DefaultThreadFactory("websocket-farm-timer"));
+    private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, "websocket-farm-execution"));
+    private final HashedWheelTimer timer = new HashedWheelTimer(runnable -> new Thread(runnable, "websocket-farm-timer"));
 
-    public WebSocketFarm(long maxWaitInMillis) {
+    public WebSocketFarm(RouteResolver routeResolver, long maxWaitInMillis) {
+        this.routeResolver = routeResolver;
         this.maxWaitInMillis = maxWaitInMillis;
     }
 
@@ -58,12 +57,36 @@ class WebSocketFarm {
         waitingTasks.clear();
     }
 
+    public void cleanRoutes(long routesKeepTimeMillis) {
+        final long cutoffTime = System.currentTimeMillis() - routesKeepTimeMillis;
+        this.sockets.entrySet().stream()
+            .filter(entry -> entry.getValue() != null
+                && entry.getValue().size() == 0
+                && routeLastRemovalTimes.containsKey(entry.getKey())
+                && routeLastRemovalTimes.get(entry.getKey()) < cutoffTime)
+            .forEach(entry -> {
+                log.info("removing registration info for {}, consequence requests to {} will receive 404", entry.getKey(), entry.getKey());
+                this.sockets.remove(entry.getKey());
+                this.routeLastRemovalTimes.remove(entry.getKey());
+            });
+    }
+
+    public boolean canHandle(String target, boolean useCatchAll) {
+        final String routeKey = resolveRouteKey(target, useCatchAll);
+        if (routeKey == null) return false;
+        final Queue<RouterSocket> routerSockets = sockets.get(routeKey);
+        return routerSockets != null && routerSockets.size() > 0;
+    }
+
     public int idleCount() {
         return this.idleCount.get();
     }
 
     public void removeWebSocketAsync(String route, RouterSocket socket, Runnable onRemoveSuccess) {
         executor.submit(() -> ThrowingFunction.logIfFail(() -> {
+
+            routeLastRemovalTimes.put(route, System.currentTimeMillis());
+
             boolean removed = false;
             Queue<RouterSocket> routerSockets = sockets.get(route);
             if (routerSockets != null) {
@@ -82,6 +105,7 @@ class WebSocketFarm {
     }
 
     private void addWebSocketSync(String route, RouterSocket socket) {
+
         if (socket.isCatchAll()) {
             hasCatchAll = true;
         }
@@ -115,10 +139,6 @@ class WebSocketFarm {
         return socket;
     }
 
-    private String getRouteKey(String route, boolean isCatchAll) {
-        return isCatchAll ? "*" : route;
-    }
-
     private long peekTime(long start) {
         return System.currentTimeMillis() - start;
     }
@@ -128,6 +148,7 @@ class WebSocketFarm {
      *
      * @param target         The full path of the request, for example <code>/some-service/blah</code> (in which a socket
      *                       for the <code>some-service</code> route would be looked up)
+     * @param useCatchall    true mean fallback to "*" route when can't find specific route, otherwise just reject
      * @param clientRequest  {@link MuRequest} for providing info while acquiring socket
      * @param clientResponse {@link MuResponse} for providing info while acquiring socket
      * @param onSuccess      A callback if this is successful. If there is a socket already waiting then this is executed
@@ -136,7 +157,7 @@ class WebSocketFarm {
      *                       (based on the value set with {@link CrankerRouterBuilder#withConnectorMaxWaitInMillis(long)})
      * @param onFailure      A callback if this is failed, e.g. wait till timeout and no socket available
      */
-    public void acquireSocket(String target, MuRequest clientRequest, MuResponse clientResponse,
+    public void acquireSocket(String target, boolean useCatchall, MuRequest clientRequest, MuResponse clientResponse,
                               ObjLongConsumer<RouterSocket> onSuccess, SocketAcquireFailedListener onFailure) {
 
         // do nothing if response already ended
@@ -145,11 +166,15 @@ class WebSocketFarm {
                 clientResponse.responseState(), clientRequest.attribute(MU_ID));
             return;
         }
-        String route = resolveRoute(target);
+
+        final String routeKey = resolveRouteKey(target, useCatchall);
+        if (routeKey == null) {
+            onFailure.accept(404, 0L, "404 Not Found", "Page not found");
+            return;
+        }
 
         // 404 if no catchAll routes
-        final boolean isCatchAll = "*".equals(route) || !sockets.containsKey(route);
-        if (isCatchAll && !hasCatchAll) {
+        if ("*".equals(routeKey) && !hasCatchAll) {
             onFailure.accept(404, 0L, "404 Not Found", "Page not found");
             return;
         }
@@ -158,11 +183,10 @@ class WebSocketFarm {
         final long[] startTime = new long[]{System.currentTimeMillis()};
         executor.submit(() -> ThrowingFunction.logIfFail(() -> {
 
-            final String routeKey = getRouteKey(route, isCatchAll);
-
             final RouterSocket routerSocket = getRouterSocket(routeKey);
             if (routerSocket != null) {
                 idleCount.decrementAndGet();
+                routeLastRemovalTimes.put(routeKey, System.currentTimeMillis());
                 onSuccess.accept(routerSocket, peekTime(startTime[0]));
                 return;
             }
@@ -194,6 +218,7 @@ class WebSocketFarm {
 
                         addWebSocketSync(routeKey, socket); // return the socket back
                     } else {
+                        routeLastRemovalTimes.put(routeKey, System.currentTimeMillis());
                         onSuccess.accept(socket, peekTime(startTime[0]));
                     }
                 });
@@ -204,6 +229,15 @@ class WebSocketFarm {
             }
 
         }));
+    }
+
+    private String resolveRouteKey(String target, boolean useCatchAll) {
+        String resolved = routeResolver.resolve(sockets.keySet(), target);
+        if (!useCatchAll && (resolved == null || "*".equals(resolved))) {
+            return null;
+        } else {
+            return Objects.requireNonNullElse(resolved, "*");
+        }
     }
 
     @FunctionalInterface
@@ -270,15 +304,6 @@ class WebSocketFarm {
         String currentConnectorInstanceID = routerSocket.connectorInstanceID();
         if (currentConnectorInstanceID.equals(connectorInstanceID)) {
             removeWebSocketAsync(routerSocket.route, routerSocket, routerSocket::socketSessionClose);
-        }
-    }
-
-    private String resolveRoute(String target) {
-        if (target.split("/").length >= 2) {
-            return target.split("/")[1];
-        } else {
-            // It's either root target, or blank target
-            return "*";
         }
     }
 

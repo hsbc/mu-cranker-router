@@ -2,11 +2,9 @@ package com.hsbc.cranker.mucranker;
 
 import io.muserver.Mutils;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyList;
 
@@ -25,7 +23,10 @@ public class CrankerRouterBuilder {
     private long maxWaitInMillis = 5000;
     private long pingAfterWriteMillis = 10000;
     private long idleReadTimeoutMills = 60000;
+    private long routesKeepTimeMillis = 2 * 60 * 60 * 1000L;
     private List<ProxyListener> completionListeners = emptyList();
+    private RouteResolver routeResolver;
+    private List<String> supportedCrankerProtocol = List.of("1.0", "3.0");
 
     /**
      * @return A new builder
@@ -88,6 +89,25 @@ public class CrankerRouterBuilder {
         }
         Mutils.notNull("unit", unit);
         this.idleReadTimeoutMills = unit.toMillis(duration);
+        return this;
+    }
+
+    /**
+     * <p>Sets the routes keep time if no more connector registered. Within the time, client will receive 503 (no cranker available).
+     * After that, the route info will be cleaned up, and client will receive 404 if requesting against this route.</p>
+     *
+     * <p>The default keep time is 2 hours.</p>
+     *
+     * @param duration The duration for keeping the route info, or 0 to disable cleaning.
+     * @param unit     The unit of the duration.
+     * @return This builder
+     */
+    public CrankerRouterBuilder withRoutesKeepTime(long duration, TimeUnit unit) {
+        if (duration < 0) {
+            throw new IllegalArgumentException("The duration must be 0 or greater");
+        }
+        Mutils.notNull("unit", unit);
+        this.routesKeepTimeMillis = unit.toMillis(duration);
         return this;
     }
 
@@ -170,16 +190,54 @@ public class CrankerRouterBuilder {
     }
 
     /**
+     * Customized route resolver. If it's not specified, will use the default implementation in {@link RouteResolver#resolve(Set, String)}
+     *
+     * @param routeResolver The customized routeResolver.
+     * @return This builder
+     */
+    public CrankerRouterBuilder withRouteResolver(RouteResolver routeResolver) {
+        this.routeResolver = routeResolver;
+        return this;
+    }
+
+    /**
+     * Set cranker protocols. Default supporting both [&quot;cranker_1.0&quot;, &quot;cranker_3.0&quot;].
+     *
+     * @param protocols the protocols to support
+     * @return this builder
+     */
+    public CrankerRouterBuilder withSupportedCrankerProtocols(List<String> protocols) {
+        if (protocols == null || protocols.isEmpty()) {
+            throw new CrankerProtocol.CrankerProtocolVersionNotFoundException("protocols is null or empty");
+        }
+        List<String> supportedProtocols = protocols.stream()
+            .filter(Objects::nonNull)
+            .map(String::toLowerCase)
+            .map(it -> it.replace("cranker_", ""))
+            .filter(it -> it.equalsIgnoreCase("1.0") || it.equalsIgnoreCase("3.0"))
+            .collect(Collectors.toList());
+        if (supportedProtocols.isEmpty()) {
+            throw new CrankerProtocol.CrankerProtocolVersionNotFoundException("protocols is empty after filter");
+        }
+        this.supportedCrankerProtocol = supportedProtocols;
+        return this;
+    }
+
+
+    /**
      * @return A newly created CrankerRouter object
      */
     public CrankerRouter start() {
         Set<String> doNotProxy = new HashSet<>(CrankerMuHandler.REPRESSED);
         doNotProxyHeaders.forEach(h -> doNotProxy.add(h.toLowerCase()));
-        WebSocketFarm webSocketFarm = new WebSocketFarm(maxWaitInMillis);
+        if (routeResolver == null) routeResolver = new RouteResolver() {};
+        WebSocketFarm webSocketFarm = new WebSocketFarm(routeResolver, maxWaitInMillis);
+        WebSocketFarmV3Holder webSocketFarmV3Holder = new WebSocketFarmV3Holder(routeResolver);
         webSocketFarm.start();
         List<ProxyListener> completionListeners = this.completionListeners.isEmpty() ? emptyList() : new ArrayList<>(this.completionListeners);
         DarkModeManager darkModeManager = new DarkModeManagerImpl(webSocketFarm);
         return new CrankerRouterImpl(ipValidator, discardClientForwardedHeaders,
-            sendLegacyForwardedHeaders, viaValue, doNotProxy, webSocketFarm, idleReadTimeoutMills, pingAfterWriteMillis, completionListeners, darkModeManager);
+            sendLegacyForwardedHeaders, viaValue, doNotProxy, webSocketFarm, webSocketFarmV3Holder,
+            idleReadTimeoutMills, pingAfterWriteMillis, routesKeepTimeMillis, completionListeners, darkModeManager, supportedCrankerProtocol);
     }
 }

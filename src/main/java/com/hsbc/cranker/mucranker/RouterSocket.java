@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static com.hsbc.cranker.mucranker.CrankerMuHandler.HOP_BY_HOP;
 
+
 class RouterSocket extends BaseWebSocket implements ProxyInfo {
     private static final Logger log = LoggerFactory.getLogger(RouterSocket.class);
     private static final List<String> RESPONSE_HEADERS_TO_NOT_SEND_BACK = Collections.singletonList("server");
@@ -40,6 +41,7 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
     private long socketWaitInMillis;
     private Throwable error;
     private long durationMillis = 0;
+    private StringBuilder onTextBuffer;
 
     RouterSocket(String route, String componentName, WebSocketFarm webSocketFarm, String remotePort, List<ProxyListener> proxyListeners) {
         this.webSocketFarm = webSocketFarm;
@@ -157,32 +159,50 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
     }
 
     @Override
-    public void onText(String message, DoneCallback doneCallback) throws Exception {
+    public void onText(String message, boolean isLast, DoneCallback doneCallback) throws Exception {
         WebsocketSessionState websocketState = state();
         if (!hasResponse || websocketState.endState()) {
             doneCallback.onComplete(new IllegalStateException("Received text message from connector but hasResponse=" + hasResponse + " and state=" + websocketState));
             return;
         }
-        CrankerProtocolResponse protocolResponse = new CrankerProtocolResponse(message);
-        response.status(protocolResponse.getStatus());
-        putHeadersTo(protocolResponse);
-        try {
-            if (!proxyListeners.isEmpty()) {
-                for (ProxyListener proxyListener : proxyListeners) {
-                    proxyListener.onBeforeRespondingToClient(this);
-                    proxyListener.onAfterTargetToProxyHeadersReceived(this, protocolResponse.getStatus(), response.headers());
-                }
-            }
-        } catch (WebApplicationException e) {
-            CrankerMuHandler.handleWebApplicationException(e, response, asyncHandle);
+
+        if (!isLast && onTextBuffer == null) {
+            onTextBuffer = new StringBuilder();
         }
 
-        bytesSent.getAndAdd(message.length()); // string length should be number of bytes as this is used for headers so is ASCII
+        if (onTextBuffer != null) {
+            onTextBuffer.append(message);
+            // protect cranker from OOM
+            if (onTextBuffer.length() > 64 * 1024) {
+                doneCallback.onComplete(new RuntimeException("response header too large"));
+                return;
+            }
+        }
+
+        if (isLast) {
+            final String messageToApply = onTextBuffer != null ? onTextBuffer.toString() : message;
+            CrankerProtocolResponse protocolResponse = new CrankerProtocolResponse(messageToApply);
+            response.status(protocolResponse.getStatus());
+            putHeadersTo(protocolResponse);
+            try {
+                if (!proxyListeners.isEmpty()) {
+                    for (ProxyListener proxyListener : proxyListeners) {
+                        proxyListener.onBeforeRespondingToClient(this);
+                        proxyListener.onAfterTargetToProxyHeadersReceived(this, protocolResponse.getStatus(), response.headers());
+                    }
+                }
+            } catch (WebApplicationException e) {
+                CrankerMuHandler.handleWebApplicationException(e, response, asyncHandle);
+            }
+
+            bytesSent.getAndAdd(message.length()); // string length should be number of bytes as this is used for headers so is ASCII
+        }
+
         doneCallback.onComplete(null);
     }
 
     @Override
-    public void onBinary(ByteBuffer byteBuffer, DoneCallback doneCallback) throws Exception {
+    public void onBinary(ByteBuffer byteBuffer, boolean isLast, DoneCallback doneCallback) throws Exception {
         WebsocketSessionState websocketState = state();
         if (!hasResponse || websocketState.endState()) {
             doneCallback.onComplete(new IllegalStateException("Received binary message from connector but hasResponse=" + hasResponse + " and state=" + websocketState));
@@ -294,6 +314,10 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
             }
         }
         return false;
+    }
+
+    public String getProtocol() {
+        return "cranker_1.0";
     }
 
 

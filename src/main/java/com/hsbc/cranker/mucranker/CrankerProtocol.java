@@ -1,9 +1,10 @@
 package com.hsbc.cranker.mucranker;
 
-import org.slf4j.Logger;
-
 class CrankerProtocol {
+
     static final String CRANKER_PROTOCOL_VERSION_1_0 = "1.0";
+    static final String CRANKER_PROTOCOL_VERSION_2_0 = "2.0";
+    static final String CRANKER_PROTOCOL_VERSION_3_0 = "3.0";
     static final String SUPPORTING_HTTP_VERSION_1_1 = "HTTP/1.1";
 
     /**
@@ -37,16 +38,6 @@ class CrankerProtocol {
      * ** \n
      */
 
-    public static boolean validateCrankerProtocolVersion(String version, Logger log) {
-        if (version == null) {
-            throw new CrankerProtocolVersionNotFoundException("version is null");
-        } else if (!version.equals(CRANKER_PROTOCOL_VERSION_1_0)) {
-            throw new CrankerProtocolVersionNotSupportedException("cannot support cranker protocol version: " + version);
-        } else {
-            log.debug("I can establish connection with Cranker Protocol " + version + ", currently support " + SUPPORTING_HTTP_VERSION_1_1);
-            return true;
-        }
-    }
 
     public static class CrankerProtocolVersionNotSupportedException extends RuntimeException {
         public CrankerProtocolVersionNotSupportedException(String reason) {

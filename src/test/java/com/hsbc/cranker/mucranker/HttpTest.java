@@ -6,9 +6,10 @@ import io.muserver.MuServer;
 import io.muserver.Mutils;
 import io.muserver.handlers.ResourceHandlerBuilder;
 import okhttp3.Response;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.RepetitionInfo;
 import scaffolding.ClientUtils;
 import scaffolding.RawClient;
 import scaffolding.StringUtils;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
+import static com.hsbc.cranker.mucranker.BaseEndToEndTest.preferredProtocols;
 import static io.muserver.MuServerBuilder.httpServer;
 import static io.muserver.MuServerBuilder.httpsServer;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -29,6 +31,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.core.IsEqual.equalTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static scaffolding.Action.swallowException;
 import static scaffolding.AssertUtils.assertEventually;
 import static scaffolding.ClientUtils.call;
@@ -36,32 +39,45 @@ import static scaffolding.ClientUtils.request;
 
 public class HttpTest {
 
-    private static MuServer targetServer = httpServer()
-        .addHandler(Method.GET, "/echo-headers", (request, response, pathParams) -> {
-            response.headers().set("Server", "mu");
-            for (Map.Entry<String, String> entry : request.headers()) {
-                response.headers().add(entry.getKey(), entry.getValue());
-            }
-        })
-        .addHandler(ResourceHandlerBuilder.classpathHandler("/web"))
-        .start();
+    private MuServer targetServer ;
 
-    private static CrankerRouter crankerRouter = CrankerRouterBuilder.crankerRouter().withSendLegacyForwardedHeaders(true).start();
-    private static MuServer router = httpsServer()
-        .withHttpPort(0)
-        .withGzipEnabled(false)
-        .addHandler(crankerRouter.createRegistrationHandler())
-        .addHandler(crankerRouter.createHttpHandler())
-        .start();
+    private CrankerRouter crankerRouter;
+    private MuServer registrationServer;
+    private MuServer router;
 
-    private static MuServer registrationServer = httpsServer().addHandler(crankerRouter.createRegistrationHandler()).start();
+    private CrankerConnector connector;
+    private CrankerConnector connector2;
 
-    private static CrankerConnector connector = BaseEndToEndTest.startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, router);
+    @BeforeEach
+    void setUp(RepetitionInfo repetitionInfo) {
+        targetServer = httpServer()
+            .addHandler(Method.GET, "/echo-headers", (request, response, pathParams) -> {
+                response.headers().set("Server", "mu");
+                for (Map.Entry<String, String> entry : request.headers()) {
+                    response.headers().add(entry.getKey(), entry.getValue());
+                }
+            })
+            .addHandler(ResourceHandlerBuilder.classpathHandler("/web"))
+            .start();
+        crankerRouter = CrankerRouterBuilder.crankerRouter()
+            .withSupportedCrankerProtocols(List.of("cranker_1.0", "cranker_3.0"))
+            .withSendLegacyForwardedHeaders(true)
+            .start();
+        router = httpsServer()
+            .withHttpPort(0)
+            .withGzipEnabled(false)
+            .addHandler(crankerRouter.createRegistrationHandler())
+            .addHandler(crankerRouter.createHttpHandler())
+            .start();
+        registrationServer = httpsServer().addHandler(crankerRouter.createRegistrationHandler()).start();
+        connector = BaseEndToEndTest.startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, preferredProtocols(repetitionInfo), "*", router);
+    }
 
-
-    @AfterAll
-    public static void stop() {
-        swallowException(() -> connector.stop(30, TimeUnit.SECONDS));
+    @AfterEach
+    public void stop() {
+        swallowException(() -> {if (connector != null) connector.stop(30, TimeUnit.SECONDS);});
+        swallowException(() -> {if (connector2 != null) connector2.stop(30, TimeUnit.SECONDS);});
+        assertEventually(() -> crankerRouter.idleConnectionCount(), is(0));
         swallowException(targetServer::stop);
         swallowException(registrationServer::stop);
         swallowException(router::stop);
@@ -75,7 +91,7 @@ public class HttpTest {
         }
     }
 
-    @Test
+    @RepeatedTest(3)
     public void canMakeGETRequestsWithFixedSizeResponses() throws Exception {
         String text = StringUtils.LARGE_TXT;
         try (Response response =
@@ -91,7 +107,7 @@ public class HttpTest {
         }
     }
 
-    @Test
+    @RepeatedTest(3)
     public void canMakeGETRequestsWithChunkedResponses() throws Exception {
         String text = StringUtils.LARGE_TXT;
         try (Response response = call(request(router.uri().resolve("/static/large-txt-file.txt")))) {
@@ -105,32 +121,37 @@ public class HttpTest {
     }
 
 
-    @Test
-    public void theRouterObjectReflectsNumberOfIdleConnections() throws Exception {
+    @RepeatedTest(3)
+    public void theRouterObjectReflectsNumberOfIdleConnections(RepetitionInfo repetitionInfo) throws Exception {
         assertEventually(() -> crankerRouter.idleConnectionCount(), is(2));
-        CrankerConnector connector2 = BaseEndToEndTest.startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, router);
+
+        Thread.sleep(1000L);
+        assertEventually(() -> crankerRouter.idleConnectionCount(), is(2));
+        connector2 = BaseEndToEndTest.startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, preferredProtocols(repetitionInfo), "*", router);
         assertEventually(() -> crankerRouter.idleConnectionCount(), is(4));
+
         connector2.stop(20, TimeUnit.SECONDS);
         assertEventually(() -> crankerRouter.idleConnectionCount(), is(2));
+
         call(request(router.uri().resolve("/static/hello.html"))).close();
         assertEventually(() -> crankerRouter.idleConnectionCount(), is(2));
     }
 
-    @Test
+    @RepeatedTest(3)
     public void cantMakeTraceRequests() throws Exception {
         try (Response resp = call(request(router.uri().resolve("/static/hello.html")).method("TRACE", null))) {
             assertThat(resp.code(), is(405));
         }
     }
 
-    @Test
+    @RepeatedTest(3)
     public void cantMakeTraceRequestsOnWebSocketPort() throws Exception {
         try (Response resp = call(request(registrationServer.uri().resolve("/static/hello.html")).method("TRACE", null))) {
             assertThat(resp.code(), is(405));
         }
     }
 
-    @Test
+    @RepeatedTest(3)
     public void invalidRequestsWithBadQueryAreRejected() throws Exception {
         try (RawClient client = RawClient.create(router.httpUri())) {
             client.sendStartLine("GET", "/sw000.asp?|-|0|404_Object_Not_Found")
@@ -141,7 +162,7 @@ public class HttpTest {
         }
     }
 
-    @Test
+    @RepeatedTest(3)
     public void invalidRequestsWithBadPathAreRejected() throws Exception {
         try (RawClient client = RawClient.create(router.httpUri())) {
             client.sendStartLine("GET", "/ca/..\\\\..\\\\..\\\\..\\\\..\\\\..\\\\..\\\\..\\\\winnt/\\\\win.ini")
@@ -152,17 +173,17 @@ public class HttpTest {
         }
     }
 
-    @Test
+    @RepeatedTest(3)
     public void ifTheTargetGZipsThenItComesBackGZipped() throws Exception {
         try (Response response = call(request(router.uri().resolve("/static/large-txt-file.txt"))
             .header("Accept-Encoding", "gzip"))) {
             assertThat(response.code(), is(200));
             String respText = new String(decompress(response.body().bytes()), UTF_8);
-            Assertions.assertEquals(StringUtils.LARGE_TXT, respText);
+            assertEquals(StringUtils.LARGE_TXT, respText);
         }
     }
 
-    @Test
+    @RepeatedTest(3)
     public void headersAreCorrect() throws Exception {
         // based on stuff in https://www.mnot.net/blog/2011/07/11/what_proxies_must_do
 

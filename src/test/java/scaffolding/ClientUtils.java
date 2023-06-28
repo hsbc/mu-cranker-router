@@ -3,6 +3,7 @@ package scaffolding;
 import io.netty.util.ResourceLeakDetector;
 import okhttp3.*;
 import okio.BufferedSink;
+import org.jetbrains.annotations.NotNull;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -43,7 +44,7 @@ public class ClientUtils {
                 return MediaType.parse("text/plain");
             }
 
-            public void writeTo(BufferedSink sink) throws IOException {
+            public void writeTo(@NotNull BufferedSink sink) throws IOException {
                 write(sink, "Numbers\n");
                 write(sink, "-------\n");
                 for (int i = 2; i <= 997; i++) {

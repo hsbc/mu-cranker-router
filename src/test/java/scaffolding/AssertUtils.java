@@ -14,7 +14,7 @@ public class AssertUtils {
             } catch (AssertionError e) {
                 toThrow = e;
                 try {
-                    Thread.sleep(200);
+                    Thread.sleep(50);
                 } catch (InterruptedException ex) {
                     throw new RuntimeException(ex);
                 }

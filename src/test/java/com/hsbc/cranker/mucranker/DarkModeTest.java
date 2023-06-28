@@ -5,18 +5,21 @@ import io.muserver.MuServer;
 import io.muserver.handlers.ResourceHandlerBuilder;
 import okhttp3.Response;
 import org.jetbrains.annotations.NotNull;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.RepetitionInfo;
 import scaffolding.StringUtils;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 import static com.hsbc.cranker.mucranker.BaseEndToEndTest.httpsServerForTest;
+import static com.hsbc.cranker.mucranker.BaseEndToEndTest.preferredProtocols;
 import static com.hsbc.cranker.mucranker.CrankerRouterBuilder.crankerRouter;
 import static io.muserver.MuServerBuilder.httpServer;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -30,26 +33,32 @@ import static scaffolding.ClientUtils.request;
 
 public class DarkModeTest {
 
-    private static MuServer targetServer = httpServer()
-        .addHandler(ResourceHandlerBuilder.classpathHandler("/web"))
-        .start();
+    private MuServer targetServer;
+    private CrankerRouter cranker;
+    private DarkModeManager darkModeManager;
+    private MuServer crankerServer;
+    private CrankerConnector connector;
 
-    private static CrankerRouter cranker = crankerRouter()
-        .withConnectorMaxWaitInMillis(2000)
-        .start();
+    @BeforeEach
+    void setUp(RepetitionInfo repetitionInfo) {
+        targetServer = httpServer()
+            .addHandler(ResourceHandlerBuilder.classpathHandler("/web"))
+            .start();
+        cranker = crankerRouter()
+            .withConnectorMaxWaitInMillis(2000)
+            .withSupportedCrankerProtocols(List.of("cranker_1.0", "cranker_3.0"))
+            .start();
+        darkModeManager = cranker.darkModeManager();
+        crankerServer = httpsServerForTest()
+            .addHandler(cranker.createRegistrationHandler())
+            .addHandler(cranker.createHttpHandler())
+            .start();
+        // cranker V3 protocol not plan to support darkMode
+        connector = BaseEndToEndTest.startConnectorAndWaitForRegistration(cranker, "*", targetServer, preferredProtocols(repetitionInfo), "*", crankerServer);
+    }
 
-    private static DarkModeManager darkModeManager = cranker.darkModeManager();
-
-    private static MuServer crankerServer = httpsServerForTest()
-        .addHandler(cranker.createRegistrationHandler())
-        .addHandler(cranker.createHttpHandler())
-        .start();
-
-    private static CrankerConnector connector = BaseEndToEndTest.startConnectorAndWaitForRegistration(cranker, "*", targetServer, crankerServer);
-
-
-    @AfterAll
-    public static void stop() {
+    @AfterEach
+    public void stop() {
         swallowException(() -> connector.stop(30, TimeUnit.SECONDS));
         swallowException(targetServer::stop);
         swallowException(crankerServer::stop);
@@ -63,7 +72,7 @@ public class DarkModeTest {
         }
     }
 
-    @Test
+    @RepeatedTest(1)
     public void darkModeStopsRequestsGoingToATargetServer() throws Exception {
         darkModeManager.enableDarkMode(darkHost("127.0.0.2")); // does not exist, so nothing blocked by this
         try (Response response = call(request(crankerServer.uri().resolve("/static/hello.html")))) {
@@ -82,7 +91,7 @@ public class DarkModeTest {
         }
     }
 
-    @Test
+    @RepeatedTest(1)
     public void findByIPWorks() throws UnknownHostException {
         InetAddress _127_0_0_2 = InetAddress.getByName("127.0.0.2");
         assertThat(darkModeManager.findHost(_127_0_0_2), is(Optional.empty()));
@@ -98,7 +107,7 @@ public class DarkModeTest {
         assertThat(darkModeManager.findHost(_127_0_0_2), is(Optional.empty()));
     }
 
-    @Test
+    @RepeatedTest(1)
     public void theDarkHostsAreAvailableToQuery() throws Exception {
         assertThat(darkModeManager.darkHosts(), hasSize(0));
         DarkHost host = darkHost("127.0.0.2");

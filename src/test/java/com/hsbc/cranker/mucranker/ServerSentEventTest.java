@@ -4,9 +4,12 @@ import io.muserver.Http2ConfigBuilder;
 import io.muserver.Method;
 import io.muserver.SsePublisher;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.RepetitionInfo;
 import org.junit.jupiter.api.Test;
 import scaffolding.SseTestClient;
 
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.hsbc.cranker.mucranker.CrankerRouterBuilder.crankerRouter;
@@ -24,8 +27,8 @@ public class ServerSentEventTest extends BaseEndToEndTest {
         if (client != null) swallowException(client::stop);
     }
 
-    @Test
-    public void MuServer_NormalSseTest() throws Exception {
+    @RepeatedTest(3)
+    public void MuServer_NormalSseTest(RepetitionInfo repetitionInfo) throws Exception {
 
         this.targetServer = httpServer()
             .addHandler(Method.GET, "/sse/counter", (request, response, pathParams) -> {
@@ -38,6 +41,7 @@ public class ServerSentEventTest extends BaseEndToEndTest {
             .start();
 
         this.crankerRouter = crankerRouter()
+            .withSupportedCrankerProtocols(List.of("cranker_1.0", "cranker_3.0"))
             .withConnectorMaxWaitInMillis(400).start();
 
         this.router = httpsServerForTest()
@@ -46,7 +50,7 @@ public class ServerSentEventTest extends BaseEndToEndTest {
             .withHttp2Config(Http2ConfigBuilder.http2Config().enabled(false))
             .start();
 
-        this.connector = startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, router);
+        this.connector = startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, preferredProtocols(repetitionInfo), "*", router);
 
         this.client = SseTestClient.startSse(targetServer.uri().resolve("/sse/counter"));
         this.client.waitUntilClose(5, TimeUnit.SECONDS);
@@ -85,8 +89,8 @@ public class ServerSentEventTest extends BaseEndToEndTest {
         ));
     }
 
-    @Test
-    public void MuServer_TargetServerDownInMiddleTest_ClientTalkToRouter() throws Exception {
+    @RepeatedTest(3)
+    public void MuServer_TargetServerDownInMiddleTest_ClientTalkToRouter(RepetitionInfo repetitionInfo) throws Exception {
 
         this.targetServer = httpServer()
             .addHandler(Method.GET, "/sse/counter", (request, response, pathParams) -> {
@@ -100,6 +104,7 @@ public class ServerSentEventTest extends BaseEndToEndTest {
 
 
         this.crankerRouter = crankerRouter()
+            .withSupportedCrankerProtocols(List.of("cranker_1.0", "cranker_3.0"))
             .withConnectorMaxWaitInMillis(400).start();
 
         this.router = httpsServerForTest()
@@ -108,7 +113,7 @@ public class ServerSentEventTest extends BaseEndToEndTest {
             .withHttp2Config(Http2ConfigBuilder.http2Config().enabled(false))
             .start();
 
-        this.connector = startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, router);
+        this.connector = startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, preferredProtocols(repetitionInfo), "*", router);
 
         this.client = SseTestClient.startSse(router.uri().resolve("/sse/counter"));
         this.client.waitUntilError(100, TimeUnit.SECONDS);

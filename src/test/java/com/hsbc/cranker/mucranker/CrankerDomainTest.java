@@ -53,7 +53,7 @@ public class CrankerDomainTest {
     }
 
     @RepeatedTest(3)
-    void testRegisterWithDomainRouteAs(RepetitionInfo repetitionInfo) {
+    void testRegisterWithDomainRouteAs(RepetitionInfo repetitionInfo) throws InterruptedException {
 
         List<String> preferredProtocols = preferredProtocols(repetitionInfo);
 

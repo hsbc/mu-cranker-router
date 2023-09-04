@@ -98,7 +98,7 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
                     if (statusCode == 1000) {
                         asyncHandle.complete();
                     } else {
-                        log.info("Closing client request early due to cranker wss connection close with status code {}", statusCode);
+                        log.info("Closing client request early due to cranker wss connection close with status code {} {}", statusCode, reason);
                         asyncHandle.complete(new RuntimeException("Upstream Server Error"));
                     }
                 } catch (IllegalStateException e) {

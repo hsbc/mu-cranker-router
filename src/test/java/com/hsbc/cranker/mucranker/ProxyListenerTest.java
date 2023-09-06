@@ -361,6 +361,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                         byte[] arr = new byte[readOnlyBuffer.remaining()];
                         readOnlyBuffer.get(arr);
                         reqBody.write(arr);
+                        reqBody.flush();
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
@@ -379,6 +380,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                         byte[] arr = new byte[readOnlyBuffer.remaining()];
                         readOnlyBuffer.get(arr);
                         resBody.write(arr);
+                        resBody.flush();
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }

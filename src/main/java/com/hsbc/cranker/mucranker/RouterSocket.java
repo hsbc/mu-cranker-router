@@ -220,19 +220,26 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
                     ", sending " + len + " bytes to client");
             }
             asyncHandle.write(byteBuffer, errorIfAny -> {
-                if (errorIfAny == null) {
-                    bytesSent.addAndGet(len);
-                } else {
-                    log.info("routerName=" + route + ", routerSocketID=" + routerSocketID +
-                        ", could not write to client response (maybe the user closed their browser)" +
-                        " so will cancel the request. Error message: " + errorIfAny.getMessage());
-                }
-                doneCallback.onComplete(errorIfAny); // if error not null, then onError will be called
-
-                if (!proxyListeners.isEmpty()) {
-                    for (ProxyListener proxyListener : proxyListeners) {
-                        proxyListener.onResponseBodyChunkReceivedFromTarget(this, byteBuffer);
+                try {
+                    if (errorIfAny == null) {
+                        bytesSent.addAndGet(len);
+                    } else {
+                        log.info("routerName=" + route + ", routerSocketID=" + routerSocketID +
+                            ", could not write to client response (maybe the user closed their browser)" +
+                            " so will cancel the request. Error message: " + errorIfAny.getMessage());
                     }
+
+                    if (!proxyListeners.isEmpty()) {
+                        for (ProxyListener proxyListener : proxyListeners) {
+                            proxyListener.onResponseBodyChunkReceivedFromTarget(this, byteBuffer);
+                        }
+                    }
+                } catch (Throwable throwable) {
+                    log.warn("something wrong after sending bytes to cranker", throwable);
+                } finally {
+                    // if error not null, then onError will be called
+                    // this call will release ByteBuffer and pull new ByteBuffer
+                    doneCallback.onComplete(errorIfAny);
                 }
             });
         }

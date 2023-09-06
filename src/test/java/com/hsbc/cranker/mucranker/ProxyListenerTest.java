@@ -17,7 +17,6 @@ import scaffolding.ClientUtils;
 import javax.ws.rs.WebApplicationException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;

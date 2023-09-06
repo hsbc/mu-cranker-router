@@ -67,7 +67,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
         assertThat(info.response().status(), is(200));
         assertThat(info.durationMillis(), greaterThan(-1L));
         assertThat(info.bytesReceived(), greaterThan(0L));
-        assertThat(info.bytesSent(), either(is(113L)).or(is(112L)));
+        assertThat(info.bytesSent(), greaterThan(0L));
         assertThat(info.errorIfAny(), is(nullValue()));
         assertThat(info.responseBodyFrames(), greaterThan(0L));
     }

@@ -327,6 +327,13 @@ public class ProxyListenerTest extends BaseEndToEndTest {
 
     }
 
+    private static ByteBuffer copyBuffer(ByteBuffer data) {
+        ByteBuffer copy = ByteBuffer.allocate(data.remaining());
+        copy.put(data);
+        copy.rewind();
+        return copy;
+    }
+
     @RepeatedTest(3)
     @Timeout(value = 30000, unit = TimeUnit.MILLISECONDS)
     public void canGetRequestBodyAfterSentAndGetResponseBodyAfterReceiver(RepetitionInfo repetitionInfo) throws Exception {
@@ -351,7 +358,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                 @Override
                 public void onRequestBodyChunkSentToTarget(ProxyInfo info, ByteBuffer chunk) {
                     try {
-                        final ByteBuffer readOnlyBuffer = chunk.asReadOnlyBuffer();
+                        final ByteBuffer readOnlyBuffer = copyBuffer(chunk);
                         byte[] arr = new byte[readOnlyBuffer.remaining()];
                         readOnlyBuffer.get(arr);
                         reqBody.write(arr);
@@ -368,7 +375,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                 @Override
                 public void onResponseBodyChunkReceivedFromTarget(ProxyInfo info, ByteBuffer chunk) {
                     try {
-                        final ByteBuffer readOnlyBuffer = chunk.asReadOnlyBuffer();
+                        final ByteBuffer readOnlyBuffer = copyBuffer(chunk);
                         byte[] arr = new byte[readOnlyBuffer.remaining()];
                         readOnlyBuffer.get(arr);
                         resBody.write(arr);

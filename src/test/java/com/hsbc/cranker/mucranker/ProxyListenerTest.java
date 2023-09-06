@@ -362,6 +362,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                         readOnlyBuffer.get(arr);
                         reqBody.write(arr);
                         reqBody.flush();
+                        log.info("onRequestBodyChunkSentToTarget after info={}, chunk={}, text={}", info, chunk, new String(arr));
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
@@ -381,6 +382,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                         readOnlyBuffer.get(arr);
                         resBody.write(arr);
                         resBody.flush();
+                        log.info("onResponseBodyChunkReceivedFromTarget after info={}, chunk={}, text={}", info, chunk, new String(arr));
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }

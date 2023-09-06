@@ -210,14 +210,15 @@ class CrankerMuHandler implements MuHandler {
                     public void onDataReceived(ByteBuffer buffer, DoneCallback callback) {
                         try {
                             final int position = buffer.position();
-                            crankedSocket.sendData(buffer, error -> {
+                            final DoneCallback doneWrapper = error -> {
                                 if (!proxyListeners.isEmpty()) {
                                     for (ProxyListener proxyListener : proxyListeners) {
                                         proxyListener.onRequestBodyChunkSentToTarget(crankedSocket, buffer.position(position));
                                     }
                                 }
                                 callback.onComplete(error);
-                            });
+                            };
+                            crankedSocket.sendData(buffer, doneWrapper);
                         } catch (Exception e) {
                             onError(e);
                         }

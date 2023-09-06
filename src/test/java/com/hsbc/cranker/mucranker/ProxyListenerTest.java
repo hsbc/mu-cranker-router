@@ -345,11 +345,12 @@ public class ProxyListenerTest extends BaseEndToEndTest {
     @RepeatedTest(3)
     @Timeout(value = 30000, unit = TimeUnit.MILLISECONDS)
     public void canGetRequestBodyAfterSentAndGetResponseBodyAfterReceiver(RepetitionInfo repetitionInfo) throws Exception {
-        final List<byte[]> reqBodyBytes = new ArrayList<>();
-        final List<byte[]> resBodyBytes = new ArrayList<>();
 
-        final boolean[] complete = {false, false};
-        CountDownLatch latch = new CountDownLatch(1);
+        final List<byte[]> reqBodyBytes = new CopyOnWriteArrayList<>();
+        final List<byte[]> resBodyBytes = new CopyOnWriteArrayList<>();
+
+        CountDownLatch callbackLatch = new CountDownLatch(2);
+        CountDownLatch completedLatch = new CountDownLatch(3);
 
         this.targetServer = httpServer()
                 .addHandler(Method.POST, "/", (request, response, pathParams) -> {
@@ -365,37 +366,35 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                 .withProxyListeners(singletonList(new ProxyListener() {
                     @Override
                     public void onRequestBodyChunkSentToTarget(ProxyInfo info, ByteBuffer chunk) {
-                        log.info("onRequestBodyChunkSentToTarget info={}, chunk={}", info, chunk);
                         final ByteBuffer readOnlyBuffer = chunk.asReadOnlyBuffer();
                         byte[] arr = new byte[readOnlyBuffer.remaining()];
                         readOnlyBuffer.get(arr);
                         reqBodyBytes.add(arr);
-                        log.info("onRequestBodyChunkSentToTarget after info={}, chunk={}, text={}", info, chunk, new String(arr));
+                        callbackLatch.countDown();
                     }
 
                     @Override
                     public void onRequestBodySentToTarget(ProxyInfo info) {
-                        complete[0] = true;
+                        completedLatch.countDown();
                     }
 
                     @Override
                     public void onResponseBodyChunkReceivedFromTarget(ProxyInfo info, ByteBuffer chunk) {
-                        log.info("onResponseBodyChunkReceivedFromTarget info={}, chunk={}", info, chunk);
                         final ByteBuffer readOnlyBuffer = chunk.asReadOnlyBuffer();
                         byte[] arr = new byte[readOnlyBuffer.remaining()];
                         readOnlyBuffer.get(arr);
                         resBodyBytes.add(arr);
-                        log.info("onResponseBodyChunkReceivedFromTarget after info={}, chunk={}, text={}", info, chunk, new String(arr));
+                        callbackLatch.countDown();
                     }
 
                     @Override
                     public void onResponseBodyChunkReceived(ProxyInfo info) {
-                        complete[1] = true;
+                        completedLatch.countDown();
                     }
 
                     @Override
                     public void onComplete(ProxyInfo proxyInfo) {
-                        latch.countDown();
+                        completedLatch.countDown();
                     }
 
                 })), preferredProtocols(repetitionInfo)
@@ -408,18 +407,13 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                 .post(body)
                 .build();
 
-        String res;
         try (Response response = ClientUtils.client.newCall(request).execute()) {
             assert response.body() != null;
-            res = response.body().string();
-            assertEquals("hello", res);
+            assertEquals("hello", response.body().string());
         }
 
-        while (!(complete[0] && complete[1])) {
-            Thread.sleep(100);
-        }
-
-        assertTrue(latch.await(3, TimeUnit.SECONDS));
+        assertTrue(completedLatch.await(3, TimeUnit.SECONDS));
+        assertTrue(callbackLatch.await(3, TimeUnit.SECONDS));
         assertEquals("hello", new String(joinByteList(resBodyBytes), StandardCharsets.UTF_8));
         assertEquals("{\"hello\": 1}", new String(joinByteList(reqBodyBytes), StandardCharsets.UTF_8));
     }

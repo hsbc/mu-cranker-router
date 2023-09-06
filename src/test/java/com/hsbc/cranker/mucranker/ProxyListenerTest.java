@@ -334,7 +334,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
         final ByteArrayOutputStream resBody = new ByteArrayOutputStream();
 
         final boolean[] complete = {false, false};
-        CountDownLatch latch = new CountDownLatch(2);
+        CountDownLatch latch = new CountDownLatch(1);
 
         this.targetServer = httpServer()
             .addHandler(Method.POST, "/", (request, response, pathParams) -> {
@@ -355,7 +355,6 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                         byte[] arr = new byte[readOnlyBuffer.remaining()];
                         readOnlyBuffer.get(arr);
                         reqBody.write(arr);
-                        latch.countDown();
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
@@ -373,7 +372,6 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                         byte[] arr = new byte[readOnlyBuffer.remaining()];
                         readOnlyBuffer.get(arr);
                         resBody.write(arr);
-                        latch.countDown();
                     } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
@@ -383,6 +381,12 @@ public class ProxyListenerTest extends BaseEndToEndTest {
                 public void onResponseBodyChunkReceived(ProxyInfo info) {
                     complete[1] = true;
                 }
+
+                @Override
+                public void onComplete(ProxyInfo proxyInfo) {
+                    latch.countDown();
+                }
+
             })), preferredProtocols(repetitionInfo)
         );
 
@@ -397,6 +401,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
         try (Response response = ClientUtils.client.newCall(request).execute()) {
             assert response.body() != null;
             res = response.body().string();
+            assertEquals("hello", res);
         }
 
         while (!(complete[0] && complete[1])) {
@@ -404,7 +409,6 @@ public class ProxyListenerTest extends BaseEndToEndTest {
         }
 
         latch.await(3, TimeUnit.SECONDS);
-        assertEquals("hello", res);
         assertEquals("hello", resBody.toString(StandardCharsets.UTF_8));
         assertEquals("{\"hello\": 1}", reqBody.toString(StandardCharsets.UTF_8));
     }

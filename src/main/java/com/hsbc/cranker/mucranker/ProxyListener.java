@@ -96,7 +96,7 @@ public interface ProxyListener {
      * This will be called many times if the body has been fragmented
      *
      * @param info                     Info about the request and response.
-     * @param chunk                    Request body data. This chunk of ByteBuffer has already consumed before call.
+     * @param chunk                    Request body data chunk.
      *
      */
     default void onRequestBodyChunkSentToTarget(ProxyInfo info, ByteBuffer chunk) {};
@@ -114,7 +114,7 @@ public interface ProxyListener {
      * This will be called many times if the body has been fragmented
      *
      * @param info                     Info about the request and response.
-     * @param chunk                    Response body data. This chunk of ByteBuffer has already consumed before call.
+     * @param chunk                    Response body data chunk.
      *
      */
     default void onResponseBodyChunkReceivedFromTarget(ProxyInfo info, ByteBuffer chunk) {};

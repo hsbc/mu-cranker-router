@@ -219,6 +219,7 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
                 log.debug("routerName=" + route + ", routerSocketID=" + routerSocketID +
                     ", sending " + len + " bytes to client");
             }
+            final int position = byteBuffer.position();
             asyncHandle.write(byteBuffer, errorIfAny -> {
                 try {
                     if (errorIfAny == null) {
@@ -231,7 +232,7 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
 
                     if (!proxyListeners.isEmpty()) {
                         for (ProxyListener proxyListener : proxyListeners) {
-                            proxyListener.onResponseBodyChunkReceivedFromTarget(this, byteBuffer);
+                            proxyListener.onResponseBodyChunkReceivedFromTarget(this, byteBuffer.position(position));
                         }
                     }
                 } catch (Throwable throwable) {

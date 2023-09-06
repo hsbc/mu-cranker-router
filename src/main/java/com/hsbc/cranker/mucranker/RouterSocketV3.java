@@ -504,6 +504,7 @@ class RouterSocketV3 extends BaseWebSocket {
             // pullMoreData, avoid blocking the websocket tunnel
             doneAndPullData.onComplete(null);
 
+            final int position = byteBuffer.position();
             context.asyncHandle.write(byteBuffer, errorIfAny -> {
                 try {
                     if (errorIfAny == null) {
@@ -517,7 +518,7 @@ class RouterSocketV3 extends BaseWebSocket {
                     }
                     if (!proxyListeners.isEmpty()) {
                         for (ProxyListener proxyListener : proxyListeners) {
-                            proxyListener.onResponseBodyChunkReceivedFromTarget(context, byteBuffer);
+                            proxyListener.onResponseBodyChunkReceivedFromTarget(context, byteBuffer.position(position));
                         }
                     }
                 } catch (Throwable throwable) {

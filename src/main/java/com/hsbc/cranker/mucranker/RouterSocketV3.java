@@ -126,12 +126,28 @@ class RouterSocketV3 extends BaseWebSocket {
                 asyncHandle.setReadListener(new RequestBodyListener() {
                     @Override
                     public void onDataReceived(ByteBuffer buffer, DoneCallback callback) {
+
+                        final int remaining = buffer.remaining();
+                        final int position = buffer.position();
+
                         DoneCallback wrapper = error -> {
+
+                            context.fromClientBytes.addAndGet(remaining);
+
                             if (error != null) {
                                 onError(error);
                                 callback.onComplete(error);
                                 return;
                             }
+
+                            if (!proxyListeners.isEmpty()) {
+                                for (ProxyListener proxyListener : proxyListeners) {
+                                    // when creating the dataMessage, the buffer is read and position changed
+                                    // calling buffer.rewind() to reset the position
+                                    proxyListener.onRequestBodyChunkSentToTarget(context, buffer.position(position));
+                                }
+                            }
+
                             context.flowControl(() -> {
                                 try {
                                     callback.onComplete(null);
@@ -145,15 +161,6 @@ class RouterSocketV3 extends BaseWebSocket {
                             final ByteBuffer data = dataMessages(requestId, false, buffer);
                             context.sendingBytes(data.remaining() - 6);
                             sendData(data, wrapper);
-                            context.fromClientBytes.addAndGet(data.remaining() - 6);
-
-                            if (!proxyListeners.isEmpty()) {
-                                for (ProxyListener proxyListener : proxyListeners) {
-                                    // when creating the dataMessage, the buffer is read and position changed
-                                    // calling buffer.rewind() to reset the position
-                                    proxyListener.onRequestBodyChunkSentToTarget(context, buffer.rewind());
-                                }
-                            }
                         } catch (Exception e) {
                             onError(e);
                         }

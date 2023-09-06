@@ -10,6 +10,8 @@ import okhttp3.Response;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.RepetitionInfo;
 import org.junit.jupiter.api.Timeout;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import scaffolding.ClientUtils;
 
 import javax.ws.rs.WebApplicationException;
@@ -30,11 +32,14 @@ import static java.util.Collections.singletonList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static scaffolding.AssertUtils.assertEventually;
 import static scaffolding.ClientUtils.call;
 import static scaffolding.ClientUtils.request;
 
 public class ProxyListenerTest extends BaseEndToEndTest {
+
+    private static final Logger log = LoggerFactory.getLogger(ProxyListenerTest.class);
 
 
     @RepeatedTest(3)
@@ -327,13 +332,6 @@ public class ProxyListenerTest extends BaseEndToEndTest {
 
     }
 
-    private static ByteBuffer copyBuffer(ByteBuffer data) {
-        ByteBuffer copy = ByteBuffer.allocate(data.remaining());
-        copy.put(data);
-        copy.rewind();
-        return copy;
-    }
-
     @RepeatedTest(3)
     @Timeout(value = 30000, unit = TimeUnit.MILLISECONDS)
     public void canGetRequestBodyAfterSentAndGetResponseBodyAfterReceiver(RepetitionInfo repetitionInfo) throws Exception {
@@ -357,8 +355,9 @@ public class ProxyListenerTest extends BaseEndToEndTest {
             .withProxyListeners(singletonList(new ProxyListener() {
                 @Override
                 public void onRequestBodyChunkSentToTarget(ProxyInfo info, ByteBuffer chunk) {
+                    log.info("onRequestBodyChunkSentToTarget info={}, chunk={}", info, chunk);
                     try {
-                        final ByteBuffer readOnlyBuffer = copyBuffer(chunk);
+                        final ByteBuffer readOnlyBuffer = chunk.asReadOnlyBuffer();
                         byte[] arr = new byte[readOnlyBuffer.remaining()];
                         readOnlyBuffer.get(arr);
                         reqBody.write(arr);
@@ -374,8 +373,9 @@ public class ProxyListenerTest extends BaseEndToEndTest {
 
                 @Override
                 public void onResponseBodyChunkReceivedFromTarget(ProxyInfo info, ByteBuffer chunk) {
+                    log.info("onResponseBodyChunkReceivedFromTarget info={}, chunk={}", info, chunk);
                     try {
-                        final ByteBuffer readOnlyBuffer = copyBuffer(chunk);
+                        final ByteBuffer readOnlyBuffer = chunk.asReadOnlyBuffer();
                         byte[] arr = new byte[readOnlyBuffer.remaining()];
                         readOnlyBuffer.get(arr);
                         resBody.write(arr);
@@ -415,7 +415,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
             Thread.sleep(100);
         }
 
-        latch.await(3, TimeUnit.SECONDS);
+        assertTrue(latch.await(3, TimeUnit.SECONDS));
         assertEquals("hello", resBody.toString(StandardCharsets.UTF_8));
         assertEquals("{\"hello\": 1}", reqBody.toString(StandardCharsets.UTF_8));
     }

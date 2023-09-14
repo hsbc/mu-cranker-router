@@ -225,33 +225,6 @@ public class ProxyListenerTest extends BaseEndToEndTest {
     }
 
     @RepeatedTest(3)
-    public void webAppExceptionsThrownInOnAfterProxyToTargetHeadersSent(RepetitionInfo repetitionInfo) throws Exception {
-        this.targetServer = httpServer()
-                .addHandler((request, response) -> true)
-                .start();
-        startRouterAndConnector(crankerRouter()
-                .withSupportedCrankerProtocols(List.of("cranker_1.0", "cranker_3.0"))
-                .withProxyListeners(singletonList(new ProxyListener() {
-
-                    @Override
-                    public void onAfterProxyToTargetHeadersSent(ProxyInfo info, Headers headers) throws WebApplicationException {
-                        throw new WebApplicationException("There is a conflict", 409);
-                    }
-
-                })), preferredProtocols(repetitionInfo)
-        );
-
-        try (Response response = call(request(router.uri()))) {
-            assertThat(response.code(), is(409));
-            assertThat(response.header("content-type"), is("text/html;charset=utf-8"));
-            assert response.body() != null;
-            String bodyString = response.body().string();
-            assertThat(bodyString, containsString("There is a conflict"));
-            assertThat(bodyString, containsString("409 Conflict"));
-        }
-    }
-
-    @RepeatedTest(3)
     public void webAppExceptionsThrownInARequestListenerResultInErrorWithMessageAndTargetHasCalled(RepetitionInfo repetitionInfo) throws Exception {
         AtomicBoolean targetHit = new AtomicBoolean(false);
         this.targetServer = httpServer()

@@ -404,15 +404,7 @@ class RouterSocketV3 extends BaseWebSocket {
         switch (messageType) {
             case MESSAGE_TYPE_DATA: {
                 final boolean isEnd = ((flags & 1) > 0);
-                if (byteBuffer.remaining() > 0) {
-                    handleData(context, isLast, byteBuffer, doneAndPullData, releaseBuffer);
-                }
-                if (isEnd) {
-                    // response completed successfully, normal close
-                    notifyStreamClose(context, 1000);
-                    releaseBuffer.run();
-                    doneAndPullData.onComplete(null);
-                }
+                handleData(context, isLast, isEnd, byteBuffer, doneAndPullData, releaseBuffer);
                 break;
             }
             case MESSAGE_TYPE_HEADER: {
@@ -431,6 +423,9 @@ class RouterSocketV3 extends BaseWebSocket {
                         fullContent = context.headerLineBuilder.toString();
                     }
                     handleHeaderMessage(context, fullContent);
+                }
+                if (isStreamEnd) {
+                    notifyStreamClose(context, 1000);
                 }
                 sendData(windowUpdateMessage(requestId, byteLength), DoneCallback.NoOp);
                 releaseBuffer.run();
@@ -479,57 +474,58 @@ class RouterSocketV3 extends BaseWebSocket {
         return byteBuffer.remaining() >= 4 ? byteBuffer.getInt() : -1;
     }
 
-    private void handleData(RequestContext context, boolean isLast, ByteBuffer byteBuffer, DoneCallback doneAndPullData, Runnable releaseBuffer) throws Exception {
+    private void handleData(RequestContext context, boolean isLast, boolean isEnd, ByteBuffer byteBuffer, DoneCallback doneAndPullData, Runnable releaseBuffer) throws Exception {
+
+        int len = byteBuffer.remaining();
+        if (len == 0) {
+            if (isEnd) notifyStreamClose(context, 1000);
+            releaseBuffer.run();
+            doneAndPullData.onComplete(null);
+            return;
+        }
+
+        context.wssOnBinaryCallCount.incrementAndGet();
+
         WebsocketSessionState websocketState = state();
         if (websocketState.endState()) {
+            if (isEnd) notifyStreamClose(context, 1000);
             releaseBuffer.run();
             doneAndPullData.onComplete(new IllegalStateException("Received binary message from connector but state=" + websocketState));
             return;
         }
 
-        context.wssOnBinaryCallCount.incrementAndGet();
-        int len = byteBuffer.remaining();
-        if (len == 0) {
-            log.warn("routerName=" + route + ", routerSocketID=" + routerSocketID +
-                ", received 0 bytes to send to " + remoteAddress + " - " + context.response);
-            releaseBuffer.run();
-            doneAndPullData.onComplete(null);
-        } else {
-            if (log.isDebugEnabled()) {
-                log.debug("routerName=" + route + ", routerSocketID=" + routerSocketID +
-                    ", sending " + len + " bytes to client");
-            }
-
-
-            // pullMoreData, avoid blocking the websocket tunnel
-            doneAndPullData.onComplete(null);
-
-            final int position = byteBuffer.position();
-            context.asyncHandle.write(byteBuffer, errorIfAny -> {
-                try {
-                    if (errorIfAny == null) {
-                        context.toClientBytes.addAndGet(len);
-                        sendData(windowUpdateMessage(context.requestId, len), DoneCallback.NoOp);
-                    } else {
-                        log.info("routerName=" + route + ", routerSocketID=" + routerSocketID +
-                            ", could not write to client response (maybe the user closed their browser)" +
-                            " so will cancel the request. Error message: " + errorIfAny.getMessage());
-                        onError(errorIfAny);
-                    }
-                    if (!proxyListeners.isEmpty()) {
-                        for (ProxyListener proxyListener : proxyListeners) {
-                            proxyListener.onResponseBodyChunkReceivedFromTarget(context, byteBuffer.position(position));
-                        }
-                    }
-                } catch (Throwable throwable) {
-                    log.warn("something wrong after sending bytes to cranker", throwable);
-                } finally {
-                    releaseBuffer.run();
-                }
-            });
+        if (log.isDebugEnabled()) {
+            log.debug("routerName=" + route + ", routerSocketID=" + routerSocketID +
+                ", sending " + len + " bytes to client");
         }
-    }
 
+        // pullMoreData, avoid blocking the websocket tunnel
+        doneAndPullData.onComplete(null);
+
+        context.asyncHandle.write(byteBuffer, errorIfAny -> {
+            try {
+                if (errorIfAny == null) {
+                    if (isEnd) notifyStreamClose(context, 1000);
+                    context.toClientBytes.addAndGet(len);
+                    sendData(windowUpdateMessage(context.requestId, len), DoneCallback.NoOp);
+                } else {
+                    log.info("routerName=" + route + ", routerSocketID=" + routerSocketID +
+                        ", could not write to client response (maybe the user closed their browser)" +
+                        " so will cancel the request. Error message: " + errorIfAny.getMessage());
+                    onError(errorIfAny);
+                }
+                if (!proxyListeners.isEmpty()) {
+                    for (ProxyListener proxyListener : proxyListeners) {
+                        proxyListener.onResponseBodyChunkReceivedFromTarget(context, byteBuffer);
+                    }
+                }
+            } catch (Throwable throwable) {
+                log.warn("something wrong after sending bytes to cranker", throwable);
+            } finally {
+                releaseBuffer.run();
+            }
+        });
+    }
 
     public String connectorInstanceID() {
         return connectorInstanceID;

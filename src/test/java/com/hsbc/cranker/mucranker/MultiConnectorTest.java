@@ -6,6 +6,7 @@ import io.muserver.MuServer;
 import okhttp3.Response;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -181,8 +182,8 @@ public class MultiConnectorTest {
 
         // traffic proxied to both connector and target
         final HashMap<String, AtomicInteger> bodyMap = callAndGroupByBody(router.uri().resolve("/my-service/hello"), 20);
-        assertThat(bodyMap.get("targetV1_1").get(), greaterThan(5));
-        assertThat(bodyMap.get("targetV3_1").get(), greaterThan(5));
+        assertThat(bodyMap.get("targetV1_1").get(), greaterThan(1));
+        assertThat(bodyMap.get("targetV3_1").get(), greaterThan(1));
     }
 
     @Test

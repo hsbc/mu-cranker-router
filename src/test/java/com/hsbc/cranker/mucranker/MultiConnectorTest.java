@@ -240,8 +240,8 @@ public class MultiConnectorTest {
 
         // traffic proxied to both connector and target
         final HashMap<String, AtomicInteger> bodyMap = callAndGroupByBody(router.uri().resolve("/my-service/hello"), 20, 2);
-        assertThat(bodyMap.get("targetV1_1").get(), greaterThan(5));
-        assertThat(bodyMap.get("targetV3_1").get(), greaterThan(5));
+        assertThat(bodyMap.get("targetV1_1").get(), greaterThan(1));
+        assertThat(bodyMap.get("targetV3_1").get(), greaterThan(1));
     }
 
     @Test

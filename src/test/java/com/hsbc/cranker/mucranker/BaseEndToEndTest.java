@@ -54,9 +54,9 @@ public abstract class BaseEndToEndTest {
     void startRouterAndConnector(CrankerRouterBuilder crankerRouterBuilder, List<String> preferredProtocols) {
         this.crankerRouter = crankerRouterBuilder.start();
         this.router = httpsServerForTest()
-            .addHandler(crankerRouter.createRegistrationHandler())
-            .addHandler(crankerRouter.createHttpHandler())
-            .start();
+                .addHandler(crankerRouter.createRegistrationHandler())
+                .addHandler(crankerRouter.createHttpHandler())
+                .start();
 
         if (targetServer != null) {
             this.connector = startConnectorAndWaitForRegistration(crankerRouter, "*", targetServer, preferredProtocols, "*", router);
@@ -72,51 +72,42 @@ public abstract class BaseEndToEndTest {
     public static void waitForRegistration(String targetServiceName, String connectorInstanceId, int slidingWindow, CrankerRouter[] crankerRouters) {
         final String serviceKey = targetServiceName.isEmpty() ? "*" : targetServiceName;
         for (CrankerRouter crankerRouter : crankerRouters) {
-            AssertUtils.assertEventually(() -> {
-                final List<ConnectorInstance> matchedConnectors = crankerRouter.collectInfo().services()
+            AssertUtils.assertEventually(() -> crankerRouter.collectInfo().services()
                     .stream()
-                    .filter(service -> service.route().equals(serviceKey))
-                    .filter(service -> service.connectors().size() > 0)
-                    .flatMap(service -> service.connectors().stream())
-                    .filter(connector -> {
-                        if ("*".equals(connectorInstanceId)) {
-                            return true;
-                        } else {
-                            return connector.connectorInstanceID().equals(connectorInstanceId);
-                        }
-                    })
-                    .collect(Collectors.toUnmodifiableList());
-                return matchedConnectors.size() > 0 && matchedConnectors
-                    .stream()
-                    .allMatch(connector1 -> connector1.connections().size() >= slidingWindow);
-            }, is(true));
+                    .anyMatch(service -> service.route().equals(serviceKey)
+                            && !service.connectors().isEmpty()
+                            && service.connectors()
+                            .stream()
+                            .anyMatch(connector -> connector.connectorInstanceID().equals(connectorInstanceId)
+                                    && connector.connections().size() >= slidingWindow)
+                    ), is(true));
         }
     }
 
     @NotNull
     public static CrankerConnector startConnector(String domain, String route, List<String> preferredProtocols, MuServer target, MuServer... registrationRouters) {
         List<URI> uris = Stream.of(registrationRouters)
-            .map(s -> URI.create("ws" + s.uri().toString().substring(4)))
-            .collect(toList());
+                .map(s -> URI.create("ws" + s.uri().toString().substring(4)))
+                .collect(toList());
 
         return CrankerConnectorBuilder.connector()
-            .withPreferredProtocols(preferredProtocols)
-            .withHttpClient(CrankerConnectorBuilder.createHttpClient(true).build())
-            .withDomain(domain)
-            .withRouterUris(RegistrationUriSuppliers.fixedUris(uris))
-            .withComponentName("junit")
-            .withRoute(route)
-            .withTarget(target.uri())
-            .withRouterRegistrationListener(new RouterEventListener() {
-                public void onRegistrationChanged(ChangeData data) {
-                    log.debug("Router registration changed: " + data);
-                }
+                .withPreferredProtocols(preferredProtocols)
+                .withHttpClient(CrankerConnectorBuilder.createHttpClient(true).build())
+                .withDomain(domain)
+                .withRouterUris(RegistrationUriSuppliers.fixedUris(uris))
+                .withComponentName("junit")
+                .withRoute(route)
+                .withTarget(target.uri())
+                .withRouterRegistrationListener(new RouterEventListener() {
+                    public void onRegistrationChanged(ChangeData data) {
+                        log.debug("Router registration changed: " + data);
+                    }
 
-                public void onSocketConnectionError(RouterRegistration router1, Throwable exception) {
-                    log.debug("Error connecting to " + router1, exception);
-                }
-            })
-            .start();
+                    public void onSocketConnectionError(RouterRegistration router1, Throwable exception) {
+                        log.debug("Error connecting to " + router1, exception);
+                    }
+                })
+                .start();
     }
 
     public static MuServerBuilder httpsServerForTest() {

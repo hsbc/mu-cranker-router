@@ -19,10 +19,10 @@ class CrankerMuHandler implements MuHandler {
     private static final String ANY_DOMAIN = "*";
 
     static final Set<String> HOP_BY_HOP = new HashSet<>(asList(
-        "keep-alive", "transfer-encoding",
-        "te", "connection", "trailer", "upgrade",
-        "proxy-authorization",
-        "proxy-authenticate"
+            "keep-alive", "transfer-encoding",
+            "te", "connection", "trailer", "upgrade",
+            "proxy-authorization",
+            "proxy-authenticate"
     ));
     static final Set<String> REPRESSED;
     static final String MU_ID = "muid";
@@ -43,11 +43,11 @@ class CrankerMuHandler implements MuHandler {
         List<String> doNotForwardToTarget = new ArrayList<>();
         doNotForwardToTarget.addAll(HOP_BY_HOP);
         doNotForwardToTarget.addAll(asList(
-            // expect is already handled by mu server, so if it's forwarded it will break stuff
-            "expect",
+                // expect is already handled by mu server, so if it's forwarded it will break stuff
+                "expect",
 
-            // Headers that mucranker will overwrite
-            "forwarded", "x-forwarded-by", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-forwarded-port", "x-forwarded-server", "via"
+                // Headers that mucranker will overwrite
+                "forwarded", "x-forwarded-by", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-forwarded-port", "x-forwarded-server", "via"
         ));
         REPRESSED = new HashSet<>(doNotForwardToTarget);
     }
@@ -130,16 +130,16 @@ class CrankerMuHandler implements MuHandler {
 
     private boolean dispatchV1(MuRequest clientRequest, MuResponse clientResponse, String target, boolean useCatchAll, AsyncHandle asyncHandle) {
         webSocketFarm.acquireSocket(target, useCatchAll, clientRequest, clientResponse,
-            (crankedSocket, waitTimeInMillis) -> sendRequestOverWebSocket(clientRequest, clientResponse, asyncHandle, crankedSocket, waitTimeInMillis),
-            (statusCode, waitTimeInMillis, header, body) -> {
-                sendSimpleResponse(clientResponse, asyncHandle, statusCode, header, body);
-                if (!proxyListeners.isEmpty()) {
-                    ProxyInfo proxyInfo = new ErrorProxyInfo(target, clientRequest, clientResponse, waitTimeInMillis);
-                    for (ProxyListener proxyListener : proxyListeners) {
-                        proxyListener.onFailureToAcquireProxySocket(proxyInfo);
+                (crankedSocket, waitTimeInMillis) -> sendRequestOverWebSocket(clientRequest, clientResponse, asyncHandle, crankedSocket, waitTimeInMillis),
+                (statusCode, waitTimeInMillis, header, body) -> {
+                    sendSimpleResponse(clientResponse, asyncHandle, statusCode, header, body);
+                    if (!proxyListeners.isEmpty()) {
+                        ProxyInfo proxyInfo = new ErrorProxyInfo(target, clientRequest, clientResponse, waitTimeInMillis);
+                        for (ProxyListener proxyListener : proxyListeners) {
+                            proxyListener.onFailureToAcquireProxySocket(proxyInfo);
+                        }
                     }
-                }
-            });
+                });
         return true;
     }
 
@@ -147,26 +147,26 @@ class CrankerMuHandler implements MuHandler {
         final WebSocketFarmV3 webSocketFarmV3 = webSocketFarmV3Holder.getWebSocketFarmV3(domain);
         if (webSocketFarmV3 == null) {
             sendSimpleResponse(clientResponse, asyncHandle, 503,
-                "503 Service Unavailable",
-                "V3 connector not available for domain");
+                    "503 Service Unavailable",
+                    "V3 connector not available for domain");
             return true;
         }
         webSocketFarmV3.getWebSocket(target, useCatchAll)
-            .whenComplete((routerSocketV3, throwable) -> {
-                if (routerSocketV3 == null || throwable != null) {
-                    sendSimpleResponse(clientResponse, asyncHandle, 503,
-                        "503 Service Unavailable",
-                        "V3 connector not available");
-                    if (!proxyListeners.isEmpty()) {
-                        ProxyInfo proxyInfo = new ErrorProxyInfo(target, clientRequest, clientResponse, 0);
-                        for (ProxyListener proxyListener : proxyListeners) {
-                            proxyListener.onFailureToAcquireProxySocket(proxyInfo);
+                .whenComplete((routerSocketV3, throwable) -> {
+                    if (routerSocketV3 == null || throwable != null) {
+                        sendSimpleResponse(clientResponse, asyncHandle, 503,
+                                "503 Service Unavailable",
+                                "V3 connector not available");
+                        if (!proxyListeners.isEmpty()) {
+                            ProxyInfo proxyInfo = new ErrorProxyInfo(target, clientRequest, clientResponse, 0);
+                            for (ProxyListener proxyListener : proxyListeners) {
+                                proxyListener.onFailureToAcquireProxySocket(proxyInfo);
+                            }
                         }
+                        return;
                     }
-                    return;
-                }
-                routerSocketV3.sendRequestOverWebSocketV3(clientRequest, clientResponse);
-            });
+                    routerSocketV3.sendRequestOverWebSocketV3(clientRequest, clientResponse);
+                });
         return true;
     }
 
@@ -209,13 +209,16 @@ class CrankerMuHandler implements MuHandler {
                     @Override
                     public void onDataReceived(ByteBuffer buffer, DoneCallback callback) {
                         try {
-                            crankedSocket.sendData(buffer, callback);
-
-                            if (!proxyListeners.isEmpty()) {
-                                for (ProxyListener proxyListener : proxyListeners) {
-                                    proxyListener.onRequestBodyChunkSentToTarget(crankedSocket, buffer);
+                            final int position = buffer.position();
+                            final DoneCallback doneWrapper = error -> {
+                                if (error == null && !proxyListeners.isEmpty()) {
+                                    for (ProxyListener proxyListener : proxyListeners) {
+                                        proxyListener.onRequestBodyChunkSentToTarget(crankedSocket, buffer.position(position));
+                                    }
                                 }
-                            }
+                                callback.onComplete(error);
+                            };
+                            crankedSocket.sendData(buffer, doneWrapper);
                         } catch (Exception e) {
                             onError(e);
                         }
@@ -269,7 +272,7 @@ class CrankerMuHandler implements MuHandler {
                 crankedSocket.socketSessionClose();
             } catch (Throwable ei) {
                 log.error("Fail to close crankedSocket, routerName=" + crankedSocket.route + ", routerSocketID=" + crankedSocket.routerSocketID
-                    + " \n" + ei.getMessage());
+                        + " \n" + ei.getMessage());
             } finally {
                 asyncHandle.complete();
             }
@@ -279,7 +282,7 @@ class CrankerMuHandler implements MuHandler {
     static void handleException(MuRequest clientRequest, MuResponse clientResponse, AsyncHandle asyncHandle, Throwable e) {
         final Object muId = clientRequest.attribute(MU_ID);
         log.error(String.format("Error setting up. ErrorID=%s, request.uri=%s, request.startTime=%s, response.hasStartedSendingData=%s, response.status=%s, response.state=%s",
-            muId, clientRequest.uri(), clientRequest.startTime(), clientResponse.hasStartedSendingData(), clientResponse.status(), clientResponse.responseState()), e);
+                muId, clientRequest.uri(), clientRequest.startTime(), clientResponse.hasStartedSendingData(), clientResponse.status(), clientResponse.responseState()), e);
         try {
             if (!clientResponse.hasStartedSendingData()) {
                 clientResponse.status(500);
@@ -306,15 +309,15 @@ class CrankerMuHandler implements MuHandler {
             response.headers().remove("content-length");
             response.contentType(ContentTypes.TEXT_HTML_UTF8);
             String html = "<html><head><title>" + Mutils.htmlEncode(header) + "</title><body>"
-                + "<h1>" + Mutils.htmlEncode(header) + "</h1><p>"
-                + htmlBody + "</p></body></html>";
+                    + "<h1>" + Mutils.htmlEncode(header) + "</h1><p>"
+                    + htmlBody + "</p></body></html>";
             asyncHandle.write(Mutils.toByteBuffer(html), throwable -> {
-                    if (throwable == null) {
-                        asyncHandle.complete();
-                    } else {
-                        asyncHandle.complete(throwable);
+                        if (throwable == null) {
+                            asyncHandle.complete();
+                        } else {
+                            asyncHandle.complete(throwable);
+                        }
                     }
-                }
             );
         }
     }

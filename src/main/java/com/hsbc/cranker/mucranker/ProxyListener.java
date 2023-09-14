@@ -96,8 +96,7 @@ public interface ProxyListener {
      * This will be called many times if the body has been fragmented
      *
      * @param info                     Info about the request and response.
-     * @param chunk                    Request body data. This chunk of ByteBuffer has already consumed before call.
-     *                                 So please use {@link ByteBuffer#asReadOnlyBuffer()} to Creates a new, read-only byte buffer that shares this buffer's content.
+     * @param chunk                    Request body data which already been sent to target successfully.
      *
      */
     default void onRequestBodyChunkSentToTarget(ProxyInfo info, ByteBuffer chunk) {};
@@ -115,8 +114,7 @@ public interface ProxyListener {
      * This will be called many times if the body has been fragmented
      *
      * @param info                     Info about the request and response.
-     * @param chunk                    Response body data. This chunk of ByteBuffer has already consumed before call.
-     *                                 So please use {@link ByteBuffer#asReadOnlyBuffer()} to Creates a new, read-only byte buffer that shares this buffer's content.
+     * @param chunk                    Response body data received from the target.
      *
      */
     default void onResponseBodyChunkReceivedFromTarget(ProxyInfo info, ByteBuffer chunk) {};

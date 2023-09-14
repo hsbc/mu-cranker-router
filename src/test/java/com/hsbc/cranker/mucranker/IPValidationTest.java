@@ -40,7 +40,7 @@ public class IPValidationTest extends BaseEndToEndTest {
         }
 
         allowThem.set(true);
-        waitForRegistration("*", "*", 2, new CrankerRouter[]{crankerRouter});
+        waitForRegistration("*", this.connector.connectorId(), 2, new CrankerRouter[]{crankerRouter});
 
         try (Response resp = call(request(router.uri()))) {
             assertThat(resp.code(), is(200));

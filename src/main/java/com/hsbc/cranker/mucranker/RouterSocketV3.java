@@ -81,11 +81,15 @@ class RouterSocketV3 extends BaseWebSocket {
         contextMap.put(requestId, context);
 
         asyncHandle.addResponseCompleteHandler(info -> {
-            if (!info.completedSuccessfully() && !state().endState()) {
-                // end client early close
-                log.info("Closing socket because client request did not complete successfully for " + clientRequest);
+            if (!info.completedSuccessfully()) {
+                log.info("Client request did not complete successfully " + clientRequest);
+                if (context.error == null) {
+                    context.error = new IllegalStateException("Client request did not complete successfully.");
+                }
                 raiseCompletionEvent(context);
-                resetStream(context, ERROR_INTERNAL, "Client closed", DoneCallback.NoOp);
+                if (!state().endState()) {
+                    resetStream(context, ERROR_INTERNAL, "Client early closed", DoneCallback.NoOp);
+                }
             }
         });
 
@@ -184,9 +188,9 @@ class RouterSocketV3 extends BaseWebSocket {
 
                     @Override
                     public void onError(Throwable t) {
-                        asyncHandle.complete(t);
                         try {
-                            notifyStreamError(context, t);
+                            notifyClientRequestError(context, t);
+                            resetStream(context, ERROR_INTERNAL, "Client request body read error", DoneCallback.NoOp);
                         } catch (Exception ignored) {
                         }
                     }
@@ -230,7 +234,7 @@ class RouterSocketV3 extends BaseWebSocket {
     }
 
     void socketSessionClose() {
-        if (contextMap.size() == 0) {
+        if (contextMap.isEmpty()) {
             try {
                 MuWebSocketSession session = session();
                 if (session != null) {
@@ -244,11 +248,15 @@ class RouterSocketV3 extends BaseWebSocket {
     }
 
     void resetStream(RequestContext context, Integer errorCode, String message, DoneCallback doneCallback) {
-        if (context != null && !context.state.isCompleted()) {
+        if (context != null && !context.state.isCompleted() && !context.isRstStreamSent) {
             final ByteBuffer buffer = rstMessage(context.requestId, errorCode, message);
             sendData(buffer, doneCallback);
+            context.isRstStreamSent = true;
         }
-        contextMap.remove(context.requestId);
+
+        if (context != null) {
+            contextMap.remove(context.requestId);
+        }
     }
 
     @Override
@@ -270,11 +278,11 @@ class RouterSocketV3 extends BaseWebSocket {
             log.warn("websocket exceptional closed from client: statusCode={}, reason={}", statusCode, reason);
         }
         for (RequestContext context : contextMap.values()) {
-            notifyStreamClose(context, statusCode);
+            notifyClientRequestClose(context, statusCode);
         }
     }
 
-    private void notifyStreamClose(RequestContext context, int statusCode) {
+    private void notifyClientRequestClose(RequestContext context, int statusCode) {
         try {
             if (!proxyListeners.isEmpty()) {
                 for (ProxyListener proxyListener : proxyListeners) {
@@ -304,6 +312,9 @@ class RouterSocketV3 extends BaseWebSocket {
                 }
             }
         } finally {
+            if (statusCode != 1000 && context.error == null) {
+                context.error = new IllegalStateException("Upstream server close with code " + statusCode);
+            }
             raiseCompletionEvent(context);
             contextMap.remove(context.requestId);
         }
@@ -330,11 +341,11 @@ class RouterSocketV3 extends BaseWebSocket {
             isRemoved = true;
         }
         for (RequestContext context : contextMap.values()) {
-            notifyStreamError(context, cause);
+            notifyClientRequestError(context, cause);
         }
     }
 
-    private void notifyStreamError(RequestContext context, Throwable cause) throws Exception {
+    private void notifyClientRequestError(RequestContext context, Throwable cause) throws Exception {
         try {
             context.error = cause;
             if (cause instanceof TimeoutException) {
@@ -425,7 +436,7 @@ class RouterSocketV3 extends BaseWebSocket {
                     handleHeaderMessage(context, fullContent);
                 }
                 if (isStreamEnd) {
-                    notifyStreamClose(context, 1000);
+                    notifyClientRequestClose(context, 1000);
                 }
                 sendData(windowUpdateMessage(requestId, byteLength), DoneCallback.NoOp);
                 releaseBuffer.run();
@@ -436,7 +447,7 @@ class RouterSocketV3 extends BaseWebSocket {
                 try {
                     final int errorCode = getErrorCode(byteBuffer);
                     String message = getErrorMessage(byteBuffer);
-                    notifyStreamError(context, new RuntimeException(
+                    notifyClientRequestError(context, new RuntimeException(
                         String.format("stream closed by connector, errorCode=%s, message=%s", errorCode, message)));
                 } catch (Throwable throwable) {
                     log.warn("exception on handling rst_stream", throwable);
@@ -478,7 +489,7 @@ class RouterSocketV3 extends BaseWebSocket {
 
         int len = byteBuffer.remaining();
         if (len == 0) {
-            if (isEnd) notifyStreamClose(context, 1000);
+            if (isEnd) notifyClientRequestClose(context, 1000);
             releaseBuffer.run();
             doneAndPullData.onComplete(null);
             return;
@@ -488,7 +499,7 @@ class RouterSocketV3 extends BaseWebSocket {
 
         WebsocketSessionState websocketState = state();
         if (websocketState.endState()) {
-            if (isEnd) notifyStreamClose(context, 1000);
+            if (isEnd) notifyClientRequestClose(context, 1000);
             releaseBuffer.run();
             doneAndPullData.onComplete(new IllegalStateException("Received binary message from connector but state=" + websocketState));
             return;
@@ -505,14 +516,18 @@ class RouterSocketV3 extends BaseWebSocket {
         context.asyncHandle.write(byteBuffer, errorIfAny -> {
             try {
                 if (errorIfAny == null) {
-                    if (isEnd) notifyStreamClose(context, 1000);
+                    if (isEnd) notifyClientRequestClose(context, 1000);
                     context.toClientBytes.addAndGet(len);
                     sendData(windowUpdateMessage(context.requestId, len), DoneCallback.NoOp);
                 } else {
                     log.info("routerName=" + route + ", routerSocketID=" + routerSocketID +
                         ", could not write to client response (maybe the user closed their browser)" +
                         " so will cancel the request. Error message: " + errorIfAny.getMessage());
-                    onError(errorIfAny);
+
+                    // reset the request context instead of closing everything
+                    // the rst_stream will be sent to wss socket in asyncHandle.addResponseCompleteHandler() callback
+                    context.error = errorIfAny;
+                    context.asyncHandle.complete(errorIfAny);
                 }
                 if (!proxyListeners.isEmpty()) {
                     for (ProxyListener proxyListener : proxyListeners) {
@@ -604,13 +619,12 @@ class RouterSocketV3 extends BaseWebSocket {
         if (isStreamEnd) flags = flags | 1; // first bit 00000001
         if (isHeaderEnd) flags = flags | 4; // third bit 00000100
         final byte[] bytes = headerLine.getBytes(StandardCharsets.UTF_8);
-        final ByteBuffer message = ByteBuffer.allocate(6 + bytes.length)
+        return ByteBuffer.allocate(6 + bytes.length)
             .put(MESSAGE_TYPE_HEADER) // 1 byte
             .put((byte) flags) // 1 byte
             .putInt(requestId) // 4 byte
             .put(bytes)
             .rewind();
-        return message;
     }
 
     static ByteBuffer dataMessages(Integer requestId, boolean isEnd, ByteBuffer buffer) {
@@ -665,7 +679,8 @@ class RouterSocketV3 extends BaseWebSocket {
         final AtomicLong toClientBytes = new AtomicLong();
 
         long durationMillis = 0;
-        Throwable error = null;
+        volatile Throwable error = null;
+        volatile boolean isRstStreamSent = false;
         StreamState state = StreamState.OPEN;
         StringBuilder headerLineBuilder;
 
@@ -703,7 +718,7 @@ class RouterSocketV3 extends BaseWebSocket {
         }
 
         private void writeItMaybe() {
-            if (isWssWritable.get() && wssWriteCallbacks.size() > 0 && isWssWriting.compareAndSet(false, true)) {
+            if (isWssWritable.get() && !wssWriteCallbacks.isEmpty() && isWssWriting.compareAndSet(false, true)) {
                 try {
                     Runnable current;
                     while (isWssWritable.get() && (current = wssWriteCallbacks.poll()) != null) {

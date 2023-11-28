@@ -51,7 +51,7 @@ public class SseTestClient extends EventSourceListener{
 
     @Override
     public void onFailure(@NotNull EventSource eventSource, @Nullable Throwable t, @Nullable Response response) {
-        messages.add(String.format("onFailure: message=%s", t.getMessage()));
+        messages.add(String.format("onFailure: message=%s", t != null ? t.getMessage() : ""));
         errorLatch.countDown();
     }
 

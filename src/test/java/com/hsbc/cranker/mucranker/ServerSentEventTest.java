@@ -98,6 +98,7 @@ public class ServerSentEventTest extends BaseEndToEndTest {
                 publisher.send("Number 0");
                 publisher.send("Number 1");
                 publisher.send("Number 2");
+                client.waitMessageListSizeGreaterThan(3, 10, TimeUnit.SECONDS);
                 targetServer.stop();
             })
             .start();

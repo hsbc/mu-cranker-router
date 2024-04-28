@@ -9,16 +9,19 @@ import java.util.HashMap;
 public interface ConnectorConnection {
 
     /**
+     * A unique ID of this socket
      * @return A unique ID of this socket
      */
     String socketID();
 
     /**
+     * The port the socket is connected on
      * @return The port the socket is connected on
      */
     int port();
 
     /**
+     * the data in this object as a map
      * @return Returns the data in this object as a map
      */
     HashMap<String, Object> toMap();

@@ -49,7 +49,7 @@ class WebSocketFarmV3 {
         final long cutoffTime = System.currentTimeMillis() - routesKeepTimeMillis;
         this.sockets.entrySet().stream()
             .filter(entry -> entry.getValue() != null
-                && entry.getValue().size() == 0
+                && entry.getValue().isEmpty()
                 && routeLastRemovalTimes.containsKey(entry.getKey())
                 && routeLastRemovalTimes.get(entry.getKey()) < cutoffTime)
             .forEach(entry -> {
@@ -63,7 +63,7 @@ class WebSocketFarmV3 {
         final String routeKey = resolveRouteKey(target, useCatchAll);
         if (routeKey == null) return false;
         final List<RouterSocketV3> routeSockets = sockets.get(routeKey);
-        return routeSockets != null && routeSockets.size() > 0;
+        return routeSockets != null && !routeSockets.isEmpty();
     }
 
     private String resolveRouteKey(String target, boolean useCatchAll) {
@@ -128,7 +128,7 @@ class WebSocketFarmV3 {
                 }
                 List<RouterSocketV3> routeSockets = sockets.get(routeKey);
 
-                if (routeSockets == null || routeSockets.size() == 0) {
+                if (routeSockets == null || routeSockets.isEmpty()) {
                     future.complete(null);
                     return;
                 }

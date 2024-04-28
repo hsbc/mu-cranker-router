@@ -206,6 +206,25 @@ public class MultiConnectorTest {
     }
 
     @Test
+    void connectorCanDistributedToDifferentConnector_V3useCatchAll_V1useSpecificRouteTakeHigherPriority() {
+        // start v1 connector
+        targetV1_1 = httpServer()
+            .addHandler(Method.GET, "/my-service/hello", (request, response, pathParams) -> response.write("targetV1_1"))
+            .start();
+        connectorV1_1 = startConnector("*", "my-service", targetV1_1, List.of("cranker_1.0"));
+
+        // start another v3 connector
+        targetV3_1 = httpServer()
+            .addHandler(Method.GET, "/my-service/hello", (request, response, pathParams) -> response.write("targetV3_1"))
+            .start();
+        connectorV3_1 = startConnector("*", "*", targetV3_1, List.of("cranker_3.0"));
+
+        // specific route take higher priority
+        final HashMap<String, AtomicInteger> bodyMap = callAndGroupByBody(router.uri().resolve("/my-service/hello"), 20, 1);
+        assertThat(bodyMap.get("targetV1_1").get(), is(20));
+    }
+
+    @Test
     void connectorCanDistributedToDifferentConnector_V1useSpecificRouteTakeHigherPriority_V3useCatchAll() {
         // start v1 connector
         targetV1_1 = httpServer()

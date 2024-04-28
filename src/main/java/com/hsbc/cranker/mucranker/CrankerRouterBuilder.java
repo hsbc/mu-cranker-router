@@ -28,7 +28,10 @@ public class CrankerRouterBuilder {
     private RouteResolver routeResolver;
     private List<String> supportedCrankerProtocol = List.of("1.0", "3.0");
 
+    private CrankerRouterBuilder() {}
+
     /**
+     * Create a CrankerRouterBuilder
      * @return A new builder
      */
     public static CrankerRouterBuilder crankerRouter() {
@@ -225,6 +228,7 @@ public class CrankerRouterBuilder {
 
 
     /**
+     * Create a newly created CrankerRouter object
      * @return A newly created CrankerRouter object
      */
     public CrankerRouter start() {

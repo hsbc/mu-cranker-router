@@ -10,6 +10,7 @@ import java.util.stream.Stream;
 public interface RouterInfo {
 
     /**
+     * All the services that are registered with this cranker
      * @return All the services that are registered with this cranker
      */
     List<ConnectorService> services();
@@ -32,6 +33,7 @@ public interface RouterInfo {
     Map<String, Object> toMap();
 
     /**
+     * All the hosts that this router currently will not send requests to
      * @return All the hosts that this router currently will not send requests to
      */
     Set<DarkHost> darkHosts();

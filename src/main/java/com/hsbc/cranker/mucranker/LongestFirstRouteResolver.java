@@ -8,6 +8,11 @@ import java.util.Set;
 public class LongestFirstRouteResolver implements RouteResolver{
 
     /**
+     * Constructor for LongestFirstRouteResolver
+     */
+    public LongestFirstRouteResolver() {}
+
+    /**
      * Algorithm: using the longest route to match from the existing routes.
      *
      * <p>e.g. if request route is "/my-service/api/test" , it will try below mapping one by one,

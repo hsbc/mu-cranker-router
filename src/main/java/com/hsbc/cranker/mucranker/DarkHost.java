@@ -16,11 +16,13 @@ import java.util.Objects;
 public interface DarkHost {
 
     /**
+     * The address of the host
      * @return The address of the host
      */
     InetAddress address();
 
     /**
+     * The time that dark mode was turned on for this host
      * @return Returns the time that dark mode was turned on for this host
      */
     Instant dateEnabled();

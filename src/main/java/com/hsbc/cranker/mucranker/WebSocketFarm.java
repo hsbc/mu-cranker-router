@@ -61,7 +61,7 @@ class WebSocketFarm {
         final long cutoffTime = System.currentTimeMillis() - routesKeepTimeMillis;
         this.sockets.entrySet().stream()
             .filter(entry -> entry.getValue() != null
-                && entry.getValue().size() == 0
+                && entry.getValue().isEmpty()
                 && routeLastRemovalTimes.containsKey(entry.getKey())
                 && routeLastRemovalTimes.get(entry.getKey()) < cutoffTime)
             .forEach(entry -> {
@@ -75,7 +75,9 @@ class WebSocketFarm {
         final String routeKey = resolveRouteKey(target, useCatchAll);
         if (routeKey == null) return false;
         final Queue<RouterSocket> routerSockets = sockets.get(routeKey);
-        return routerSockets != null && routerSockets.size() > 0;
+        if (routerSockets != null && !routerSockets.isEmpty()) return true;
+        return routeLastRemovalTimes.containsKey(routeKey)
+            && (System.currentTimeMillis() - routeLastRemovalTimes.get(routeKey) < this.maxWaitInMillis);
     }
 
     public int idleCount() {
@@ -112,7 +114,7 @@ class WebSocketFarm {
 
         // if there are requests waiting for a socket to this route, then immediately pass the socket to the request
         final Queue<WaitingSocketTask> waiting = waitingTasks.get(route);
-        if (waiting != null && waiting.size() > 0) {
+        if (waiting != null && !waiting.isEmpty()) {
             final WaitingSocketTask waitTask = waiting.poll();
             if (waitTask != null) {
                 waitTask.notifySuccess(socket);
@@ -253,7 +255,7 @@ class WebSocketFarm {
         }
     }
 
-    private class WaitingSocketTask {
+    private static class WaitingSocketTask {
 
         private final String target;
         private Consumer<RouterSocket> successListener;

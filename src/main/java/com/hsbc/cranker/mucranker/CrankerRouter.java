@@ -17,6 +17,7 @@ public interface CrankerRouter {
     MuHandler createRegistrationHandler();
 
     /**
+     * The total number of websocket connections for all routes that are currently connected and ready to receive requests
      * @return The total number of websocket connections for all routes that are currently connected and ready to receive requests
      */
     int idleConnectionCount();
@@ -40,11 +41,13 @@ public interface CrankerRouter {
     void stop();
 
     /**
+     * A manager that allows you to stop or start requests going to specific hosts.
      * @return A manager that allows you to stop or start requests going to specific hosts.
      */
     DarkModeManager darkModeManager();
 
     /**
+     * The version of mu-cranker-router being used.
      * @return The version of mu-cranker-router being used, e.g. <code>1.0.0</code>
      */
     static String muCrankerVersion() {

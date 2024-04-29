@@ -13,27 +13,32 @@ import java.util.Map;
 public interface ConnectorService {
 
     /**
+     * The path prefix of the service.
      * @return The path prefix of the service, or &quot;*&quot; if it is a catch-all service.
      * @see #isCatchAll()
      */
     String route();
 
     /**
+     * The component name that the connector registered
      * @return The component name that the connector registered
      */
     String componentName();
 
     /**
+     * The connectors that serve this route.
      * @return The connectors that serve this route.
      */
     List<ConnectorInstance> connectors();
 
     /**
+     * If this connector serves from the root of the URL path.
      * @return True if this connector serves from the root of the URL path
      */
     boolean isCatchAll();
 
     /**
+     * Gets this data has key-value pairs.
      * @return Gets this data has key-value pairs.
      */
     Map<String,Object> toMap();

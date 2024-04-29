@@ -5,6 +5,7 @@ import io.muserver.*;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -17,6 +18,7 @@ public class RunLocal {
 
         // Use the mu-cranker-router builder to create a router object.
         CrankerRouter router = CrankerRouterBuilder.crankerRouter()
+            .withSupportedCrankerProtocols(List.of("cranker_3.0", "cranker_1.0"))
             .withIdleTimeout(5, TimeUnit.MINUTES)
             .withRegistrationIpValidator(ip -> true)
             .start();

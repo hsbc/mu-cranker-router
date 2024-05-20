@@ -2,7 +2,7 @@ package com.hsbc.cranker.mucranker;
 
 import io.muserver.Headers;
 
-import javax.ws.rs.WebApplicationException;
+import jakarta.ws.rs.WebApplicationException;
 import java.nio.ByteBuffer;
 import java.util.List;
 

@@ -168,7 +168,7 @@ class CrankerRouterImpl implements CrankerRouter {
     }
 
     private static void validateIpAddress(IPValidator ipValidator, MuRequest request) {
-        String remoteAddress = request.remoteAddress();
+        String remoteAddress = request.connection().remoteAddress().getAddress().getHostAddress();
         if (!ipValidator.allow(remoteAddress)) {
             String errorMsg = "Fail to establish websocket connection to craker connector because of not supported ip address="
                 + remoteAddress + " the routerName=" + Mutils.htmlEncode(request.headers().get("Route"));

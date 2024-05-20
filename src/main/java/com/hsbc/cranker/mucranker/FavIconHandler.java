@@ -2,7 +2,7 @@ package com.hsbc.cranker.mucranker;
 
 import io.muserver.*;
 
-import javax.ws.rs.NotFoundException;
+import jakarta.ws.rs.NotFoundException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;

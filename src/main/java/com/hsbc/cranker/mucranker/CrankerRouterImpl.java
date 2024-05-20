@@ -4,8 +4,8 @@ import io.muserver.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.ws.rs.ClientErrorException;
-import javax.ws.rs.ForbiddenException;
+import jakarta.ws.rs.ClientErrorException;
+import jakarta.ws.rs.ForbiddenException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
@@ -168,7 +168,7 @@ class CrankerRouterImpl implements CrankerRouter {
     }
 
     private static void validateIpAddress(IPValidator ipValidator, MuRequest request) {
-        String remoteAddress = request.remoteAddress();
+        String remoteAddress = request.connection().remoteAddress().getAddress().getHostAddress();
         if (!ipValidator.allow(remoteAddress)) {
             String errorMsg = "Fail to establish websocket connection to craker connector because of not supported ip address="
                 + remoteAddress + " the routerName=" + Mutils.htmlEncode(request.headers().get("Route"));

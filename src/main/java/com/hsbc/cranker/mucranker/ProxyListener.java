@@ -92,6 +92,17 @@ public interface ProxyListener {
 
 
     /**
+     * Called before a chunk of request body data is sent to the target
+     * This will be called many times if the body has been fragmented
+     *
+     * @param info                     Info about the request and response.
+     * @param chunk                    Request body data which is going to be sent to target.
+     *
+     */
+    default void onBeforeRequestBodyChunkSentToTarget(ProxyInfo info, ByteBuffer chunk) {};
+
+
+    /**
      * Called when a chunk of request body data is sent to the target
      * This will be called many times if the body has been fragmented
      *

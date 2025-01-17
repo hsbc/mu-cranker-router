@@ -128,7 +128,7 @@ class RouterInfoImpl implements RouterInfo {
                 ConnectorInstance connectorInstance = instanceMap.get(connectorInstanceID);
                 if (connectorInstance == null) {
                     connectorInstance = new ConnectorInstanceImpl(
-                        routerSocket.serviceAddress().getHostString(),
+                        routerSocket.getClientIp(),
                         connectorInstanceID,
                         new ArrayList<>(),
                         routerSocket.isDarkModeOn(darkHosts));
@@ -153,7 +153,7 @@ class RouterInfoImpl implements RouterInfo {
                     ConnectorInstance connectorInstance = instanceMap.get(connectorInstanceID);
                     if (connectorInstance == null) {
                         connectorInstance = new ConnectorInstanceImpl(
-                            routerSocketV3.serviceAddress().getHostString(),
+                            routerSocketV3.getClientIp(),
                             connectorInstanceID,
                             new ArrayList<>(),
                             false);

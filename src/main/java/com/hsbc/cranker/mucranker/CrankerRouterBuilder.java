@@ -1,9 +1,11 @@
 package com.hsbc.cranker.mucranker;
 
+import io.muserver.MuRequest;
 import io.muserver.Mutils;
 
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyList;
@@ -27,6 +29,7 @@ public class CrankerRouterBuilder {
     private List<ProxyListener> completionListeners = emptyList();
     private RouteResolver routeResolver;
     private List<String> supportedCrankerProtocol = List.of("1.0", "3.0");
+    private Function<MuRequest, String> clientIpProvider = MuRequest::remoteAddress;
 
     private CrankerRouterBuilder() {}
 
@@ -226,6 +229,18 @@ public class CrankerRouterBuilder {
         return this;
     }
 
+    /**
+     * Set client IP provider. If it's not set, will use {@link MuRequest#remoteAddress()}.
+     * This makes cranker better understand where original registration request comes from.
+     * For example if cranker registration request behind a proxy, we can provide a clientIpProvider implementation to get client IP from FORWARDED header.
+     * @param clientIpProvider The customized clientIpProvider
+     * @return this builder
+     */
+    public CrankerRouterBuilder withClientIpProvider(Function<MuRequest, String> clientIpProvider) {
+        this.clientIpProvider = clientIpProvider;
+        return this;
+    }
+
 
     /**
      * Create a newly created CrankerRouter object
@@ -242,6 +257,6 @@ public class CrankerRouterBuilder {
         DarkModeManager darkModeManager = new DarkModeManagerImpl(webSocketFarm);
         return new CrankerRouterImpl(ipValidator, discardClientForwardedHeaders,
             sendLegacyForwardedHeaders, viaValue, doNotProxy, webSocketFarm, webSocketFarmV3Holder,
-            idleReadTimeoutMills, pingAfterWriteMillis, routesKeepTimeMillis, completionListeners, darkModeManager, supportedCrankerProtocol);
+            idleReadTimeoutMills, pingAfterWriteMillis, routesKeepTimeMillis, completionListeners, darkModeManager, supportedCrankerProtocol, clientIpProvider);
     }
 }

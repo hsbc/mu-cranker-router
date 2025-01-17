@@ -30,6 +30,7 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
     private final List<ProxyListener> proxyListeners;
     private Runnable onReadyForAction;
     private InetSocketAddress remoteAddress;
+    private final String clientIp;
     private boolean isRemoved;
     private boolean hasResponse;
     private final AtomicLong bytesReceived = new AtomicLong();
@@ -43,7 +44,7 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
     private long durationMillis = 0;
     private StringBuilder onTextBuffer;
 
-    RouterSocket(String route, String componentName, WebSocketFarm webSocketFarm, String remotePort, List<ProxyListener> proxyListeners) {
+    RouterSocket(String route, String componentName, WebSocketFarm webSocketFarm, String remotePort, List<ProxyListener> proxyListeners, String clientIp) {
         this.webSocketFarm = webSocketFarm;
         this.route = route;
         this.componentName = componentName;
@@ -51,6 +52,7 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
         this.proxyListeners = proxyListeners;
         this.isRemoved = false;
         this.hasResponse = false;
+        this.clientIp = clientIp;
     }
 
     @Override
@@ -276,6 +278,10 @@ class RouterSocket extends BaseWebSocket implements ProxyInfo {
     @Override
     public InetSocketAddress serviceAddress() {
         return remoteAddress;
+    }
+
+    public String getClientIp() {
+        return clientIp;
     }
 
     private void putHeadersTo(CrankerProtocolResponse protocolResponse) {

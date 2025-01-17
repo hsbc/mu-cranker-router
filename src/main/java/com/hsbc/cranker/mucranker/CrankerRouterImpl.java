@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 
 import static com.hsbc.cranker.mucranker.RouterInfoImpl.getConnectorServiceList;
@@ -41,12 +42,13 @@ class CrankerRouterImpl implements CrankerRouter {
     private final DarkModeManager darkModeManager;
     private final List<String> supportedCrankerProtocols;
     private final ScheduledExecutorService executor;
+    private final Function<MuRequest, String> clientIpProvider;
 
     CrankerRouterImpl(IPValidator ipValidator, boolean discardClientForwardedHeaders, boolean sendLegacyForwardedHeaders,
                       String viaValue, Set<String> doNotProxy, WebSocketFarm webSocketFarm,
                       WebSocketFarmV3Holder webSocketFarmV3Holder, long idleTimeoutMillis, long pingScheduleMillis,
                       long routesKeepTimeMillis, List<ProxyListener> proxyListeners, DarkModeManager darkModeManager,
-                      List<String> supportedCrankerProtocol) {
+                      List<String> supportedCrankerProtocol, Function<MuRequest, String> clientIpProvider) {
         this.discardClientForwardedHeaders = discardClientForwardedHeaders;
         this.sendLegacyForwardedHeaders = sendLegacyForwardedHeaders;
         this.viaValue = viaValue;
@@ -61,6 +63,7 @@ class CrankerRouterImpl implements CrankerRouter {
         this.darkModeManager = darkModeManager;
         this.supportedCrankerProtocols = supportedCrankerProtocol;
         this.executor = Executors.newSingleThreadScheduledExecutor(runnable -> new Thread(runnable, "cranker-router-cleanup"));
+        this.clientIpProvider = clientIpProvider;
         if (routesKeepTimeMillis > 0) {
             this.executor.scheduleWithFixedDelay(this::cleanRoute, routesKeepTimeMillis, routesKeepTimeMillis, TimeUnit.MILLISECONDS);
         }
@@ -135,19 +138,29 @@ class CrankerRouterImpl implements CrankerRouter {
         String domain = getDomain(request);
         String componentName = request.query().get("componentName");
         String connectorInstanceID = request.query().get("connectorInstanceID", "unknown-" + request.remoteAddress());
+        String clientIp = this.getClientIp(request);
 
         if (VERSION_3.equals(version)) {
             final WebSocketFarmV3 webSocketFarmV3 = webSocketFarmV3Holder.getOrCreateWebSocketFarmV3(domain);
             RouterSocketV3 routerSocketV3 = new RouterSocketV3(route, componentName, webSocketFarmV3,
                 connectorInstanceID, proxyListeners,
-                discardClientForwardedHeaders, sendLegacyForwardedHeaders, viaValue, doNotProxy);
+                discardClientForwardedHeaders, sendLegacyForwardedHeaders, viaValue, doNotProxy, clientIp);
             routerSocketV3.setOnReadyForAction(() -> webSocketFarmV3.addWebSocket(route, routerSocketV3));
             return routerSocketV3;
         } else {
             responseHeaders.set("CrankerProtocol", version);
-            RouterSocket routerSocket = new RouterSocket(route, componentName, webSocketFarm, connectorInstanceID, proxyListeners);
+            RouterSocket routerSocket = new RouterSocket(route, componentName, webSocketFarm, connectorInstanceID, proxyListeners, clientIp);
             routerSocket.setOnReadyForAction(() -> webSocketFarm.addWebSocketAsync(route, routerSocket));
             return routerSocket;
+        }
+    }
+
+    private String getClientIp(MuRequest request) {
+        try {
+            return this.clientIpProvider.apply(request);
+        } catch (Exception e) {
+            log.warn("Unable to get client IP {}", e.getMessage());
+            return request.remoteAddress();
         }
     }
 

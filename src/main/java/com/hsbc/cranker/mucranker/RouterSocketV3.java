@@ -42,6 +42,7 @@ class RouterSocketV3 extends BaseWebSocket {
     private final Set<String> doNotProxy;
     private Runnable onReadyForAction;
     private InetSocketAddress remoteAddress;
+    private final String clientIp;
 
     private boolean isRemoved;
 
@@ -51,7 +52,7 @@ class RouterSocketV3 extends BaseWebSocket {
     RouterSocketV3(String route, String componentName, WebSocketFarmV3 webSocketFarmV3,
                    String remotePort, List<ProxyListener> proxyListeners,
                    boolean discardClientForwardedHeaders, boolean sendLegacyForwardedHeaders,
-                   String viaValue, Set<String> doNotProxy) {
+                   String viaValue, Set<String> doNotProxy, String clientIp) {
         this.webSocketFarmV3 = webSocketFarmV3;
         this.route = route;
         this.componentName = componentName;
@@ -62,6 +63,7 @@ class RouterSocketV3 extends BaseWebSocket {
         this.viaValue = viaValue;
         this.doNotProxy = doNotProxy;
         this.isRemoved = false;
+        this.clientIp = clientIp;
     }
 
     public WebsocketSessionState state() {
@@ -552,6 +554,10 @@ class RouterSocketV3 extends BaseWebSocket {
 
     public InetSocketAddress serviceAddress() {
         return remoteAddress;
+    }
+
+    public String getClientIp() {
+        return clientIp;
     }
 
     public String getProtocol() {

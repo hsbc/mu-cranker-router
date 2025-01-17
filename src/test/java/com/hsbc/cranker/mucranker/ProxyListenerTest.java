@@ -316,12 +316,13 @@ public class ProxyListenerTest extends BaseEndToEndTest {
 
     @RepeatedTest(3)
     @Timeout(value = 30000, unit = TimeUnit.MILLISECONDS)
-    public void canGetRequestBodyAfterSentAndGetResponseBodyAfterReceiver(RepetitionInfo repetitionInfo) throws Exception {
+    public void canGetRequestBodyBeforeAndAfterSentAndGetResponseBodyAfterReceiver(RepetitionInfo repetitionInfo) throws Exception {
 
+        final List<byte[]> reqBodyBytesB4Sent = new CopyOnWriteArrayList<>();
         final List<byte[]> reqBodyBytes = new CopyOnWriteArrayList<>();
         final List<byte[]> resBodyBytes = new CopyOnWriteArrayList<>();
 
-        CountDownLatch callbackLatch = new CountDownLatch(2);
+        CountDownLatch callbackLatch = new CountDownLatch(3);
         CountDownLatch completedLatch = new CountDownLatch(3);
 
         this.targetServer = httpServer()
@@ -336,6 +337,16 @@ public class ProxyListenerTest extends BaseEndToEndTest {
         startRouterAndConnector(crankerRouter()
                 .withSupportedCrankerProtocols(List.of("cranker_1.0", "cranker_3.0"))
                 .withProxyListeners(singletonList(new ProxyListener() {
+
+                    @Override
+                    public void onBeforeRequestBodyChunkSentToTarget(ProxyInfo info, ByteBuffer chunk) {
+                        final ByteBuffer readOnlyBuffer = chunk.asReadOnlyBuffer();
+                        byte[] arr = new byte[readOnlyBuffer.remaining()];
+                        readOnlyBuffer.get(arr);
+                        reqBodyBytesB4Sent.add(arr);
+                        callbackLatch.countDown();
+                    }
+
                     @Override
                     public void onRequestBodyChunkSentToTarget(ProxyInfo info, ByteBuffer chunk) {
                         final ByteBuffer readOnlyBuffer = chunk.asReadOnlyBuffer();
@@ -387,6 +398,7 @@ public class ProxyListenerTest extends BaseEndToEndTest {
         assertTrue(completedLatch.await(3, TimeUnit.SECONDS));
         assertTrue(callbackLatch.await(3, TimeUnit.SECONDS));
         assertEquals("hello", new String(joinByteList(resBodyBytes), StandardCharsets.UTF_8));
+        assertEquals("{\"hello\": 1}", new String(joinByteList(reqBodyBytesB4Sent), StandardCharsets.UTF_8));
         assertEquals("{\"hello\": 1}", new String(joinByteList(reqBodyBytes), StandardCharsets.UTF_8));
     }
 

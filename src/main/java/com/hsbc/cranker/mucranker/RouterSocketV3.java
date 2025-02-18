@@ -136,6 +136,13 @@ class RouterSocketV3 extends BaseWebSocket {
                         final int remaining = buffer.remaining();
                         final int position = buffer.position();
 
+                        if (!proxyListeners.isEmpty()) {
+                            for (ProxyListener proxyListener : proxyListeners) {
+                                proxyListener.onBeforeRequestBodyChunkSentToTarget(context, buffer.position(position));
+                            }
+                        }
+                        buffer.position(position);
+
                         DoneCallback wrapper = error -> {
 
                             context.fromClientBytes.addAndGet(remaining);

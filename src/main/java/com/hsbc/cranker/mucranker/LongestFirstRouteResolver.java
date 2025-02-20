@@ -5,7 +5,7 @@ import java.util.Set;
 /**
  * A route resolver which using the longest route to match from the existing routes.
  */
-public class LongestFirstRouteResolver implements RouteResolver{
+public class LongestFirstRouteResolver implements RouteResolver {
 
     /**
      * Constructor for LongestFirstRouteResolver
@@ -23,6 +23,7 @@ public class LongestFirstRouteResolver implements RouteResolver{
      *     <li>"my-service/api"</li>
      *     <li>"my-service"</li>
      * </ol>
+     *
      * @return route
      */
     @Override
@@ -39,10 +40,15 @@ public class LongestFirstRouteResolver implements RouteResolver{
         // try matching from the longest path one by one
         int lastIndex;
         while ((lastIndex = builder.lastIndexOf("/")) >= 0) {
-            builder.delete(lastIndex, builder.length());
             if (routes.contains(builder.toString())) {
                 return builder.toString();
             }
+            builder.delete(lastIndex, builder.length());
+        }
+
+        // cater the last matching
+        if (routes.contains(builder.toString())) {
+            return builder.toString();
         }
 
         return "*";

@@ -76,3 +76,24 @@ public static void main(String[] args) {
 
 To try this, you can clone this repo and run the `RunLocal.java` class in `src/test/java`.
 
+Security Considerations
+-----------------------
+
+If the routers being connected to do not trust all connections on the cranker registration port, you must apply
+authentication on the connectors to ensure only authorized connectors can serve traffic.
+
+Any TCP or HTTP authentication scheme can be used, including basic or token authentication, mTLS, or IP validation. For
+mTLS the HTTP Client supplied to the connector builder should include the client certificate to use.
+
+For example, Below is the code snippet for HTTP authentication:
+
+```java
+MuServer registrationServer = MuServerBuilder.muServer()
+.addHandler( (req, resp) -> {
+    // Authenticate registration requests here, e.g. based on client cert, IP address,
+    // shared secret in request headers, or any other HTTP authentication method as required.
+})
+.addHandler(router.createRegistrationHandler())
+.start();
+```
+

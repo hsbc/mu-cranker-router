@@ -76,3 +76,25 @@ public static void main(String[] args) {
 
 To try this, you can clone this repo and run the `RunLocal.java` class in `src/test/java`.
 
+Security Considerations
+-----------------------
+
+A router should only serve traffic from connectors that it trusts. This can be achieved in a number of ways, such as
+
+* firewall rules or IP validation which only allow TCP connections to the registration port from trusted sources, 
+* mTLS (in which case client certificates should be enabled in the MuServerBuilder and verified in a handler), 
+* or other HTTP authentication methods such as basic or token auth. 
+
+Therefore, you may wish to add a handler before the registration handler which inspects the connection or request
+details of a registration request and either allows or rejects the registration. For example:
+
+```java
+MuServer registrationServer = MuServerBuilder.muServer()
+        .addHandler((req, resp) -> {
+            // Authenticate registration requests here, e.g. based on client cert, IP address,
+            // shared secret in request headers, or any other HTTP authentication method as required.
+        })
+        .addHandler(router.createRegistrationHandler())
+        .start();
+```
+

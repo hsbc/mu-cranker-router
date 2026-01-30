@@ -86,6 +86,11 @@ public abstract class BaseEndToEndTest {
 
     @NotNull
     public static CrankerConnector startConnector(String domain, String route, List<String> preferredProtocols, MuServer target, MuServer... registrationRouters) {
+        return startConnector("junit", domain, route, preferredProtocols, target, registrationRouters);
+    }
+
+    @NotNull
+    public static CrankerConnector startConnector(String componentName, String domain, String route, List<String> preferredProtocols, MuServer target, MuServer... registrationRouters) {
         List<URI> uris = Stream.of(registrationRouters)
                 .map(s -> URI.create("ws" + s.uri().toString().substring(4)))
                 .collect(toList());
@@ -95,7 +100,7 @@ public abstract class BaseEndToEndTest {
                 .withHttpClient(CrankerConnectorBuilder.createHttpClient(true).build())
                 .withDomain(domain)
                 .withRouterUris(RegistrationUriSuppliers.fixedUris(uris))
-                .withComponentName("junit")
+                .withComponentName(componentName)
                 .withRoute(route)
                 .withTarget(target.uri())
                 .withRouterRegistrationListener(new RouterEventListener() {

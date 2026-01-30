@@ -130,6 +130,7 @@ class RouterInfoImpl implements RouterInfo {
                     connectorInstance = new ConnectorInstanceImpl(
                         routerSocket.getClientIp(),
                         connectorInstanceID,
+                        componentName,
                         new ArrayList<>(),
                         routerSocket.isDarkModeOn(darkHosts));
                     instanceMap.put(connectorInstanceID, connectorInstance);
@@ -155,6 +156,7 @@ class RouterInfoImpl implements RouterInfo {
                         connectorInstance = new ConnectorInstanceImpl(
                             routerSocketV3.getClientIp(),
                             connectorInstanceID,
+                            componentName,
                             new ArrayList<>(),
                             false);
                         instanceMap.put(connectorInstanceID, connectorInstance);

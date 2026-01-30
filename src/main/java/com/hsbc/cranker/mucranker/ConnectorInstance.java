@@ -25,6 +25,12 @@ public interface ConnectorInstance {
     String connectorInstanceID();
 
     /**
+     * The component name from connector
+     * @return The component name from connector
+     */
+    String componentName();
+
+    /**
      * The current idle connections that this connector has registered to the router.
      * @return The current idle connections that this connector has registered to the router.
      */
@@ -47,12 +53,14 @@ class ConnectorInstanceImpl implements ConnectorInstance {
 
     private final String ip;
     private final String connectorInstanceID;
+    private final String componentName;
     private final ArrayList<ConnectorConnection> connections;
     private final boolean darkMode;
 
-    ConnectorInstanceImpl(String ip, String connectorInstanceID, ArrayList<ConnectorConnection> connections, boolean darkMode) {
+    ConnectorInstanceImpl(String ip, String connectorInstanceID, String componentName, ArrayList<ConnectorConnection> connections, boolean darkMode) {
         this.ip = ip;
         this.connectorInstanceID = connectorInstanceID;
+        this.componentName = componentName;
         this.connections = connections;
         this.darkMode = darkMode;
     }
@@ -65,6 +73,11 @@ class ConnectorInstanceImpl implements ConnectorInstance {
     @Override
     public String connectorInstanceID() {
         return connectorInstanceID;
+    }
+
+    @Override
+    public String componentName() {
+        return this.componentName;
     }
 
     @Override
@@ -82,6 +95,7 @@ class ConnectorInstanceImpl implements ConnectorInstance {
         HashMap<String, Object> m = new HashMap<>();
         m.put("connectorInstanceID", connectorInstanceID);
         m.put("ip", ip);
+        m.put("componentName", componentName);
         List<HashMap<String, Object>> cons = new ArrayList<>();
         for (ConnectorConnection con : connections) {
             cons.add(con.toMap());
@@ -97,6 +111,7 @@ class ConnectorInstanceImpl implements ConnectorInstance {
         return "ConnectorInstanceImpl{" +
             "ip='" + ip + '\'' +
             ", connectorInstanceID='" + connectorInstanceID + '\'' +
+            ", componentName='" + componentName + '\'' +
             ", connections=" + connections +
             '}';
     }

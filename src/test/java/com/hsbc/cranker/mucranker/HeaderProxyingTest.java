@@ -19,8 +19,7 @@ import static com.hsbc.cranker.mucranker.CrankerRouterBuilder.crankerRouter;
 import static io.muserver.MuServerBuilder.httpServer;
 import static io.muserver.MuServerBuilder.httpsServer;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static scaffolding.ClientUtils.*;
@@ -294,7 +293,7 @@ public class HeaderProxyingTest extends BaseEndToEndTest {
         startRouterAndConnector(crankerRouter().withSupportedCrankerProtocols(List.of("cranker_1.0", "cranker_3.0")).withSendLegacyForwardedHeaders(true), preferredProtocols(repetitionInfo));
         try (Response resp = call(request(router.uri()))) {
             assert resp.body() != null;
-            assertThat(resp.body().string(), is("https " + router.uri().getAuthority() + " 127.0.0.1 1"));
+            assertThat(resp.body().string(), oneOf("https " + router.uri().getAuthority() + " 127.0.0.1 1", "https " + router.uri().getAuthority() + " 0:0:0:0:0:0:0:1 1"));
         }
     }
 

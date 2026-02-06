@@ -7,7 +7,6 @@ import io.muserver.MuServer;
 import okhttp3.MediaType;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import okhttp3.internal.Util;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -113,7 +112,7 @@ public class CrankerRouterHandlerTest {
             .start();
         connector = startConnector("my-target-server", preferredProtocols(repetitionInfo));
 
-        try (Response resp = call(request(routerServer.uri().resolve("/my-target-server/")).method("TRACE", Util.EMPTY_REQUEST))) {
+        try (Response resp = call(request(routerServer.uri().resolve("/my-target-server/")).method("TRACE", RequestBody.EMPTY))) {
             assertThat(resp.code(), is(405));
         }
     }

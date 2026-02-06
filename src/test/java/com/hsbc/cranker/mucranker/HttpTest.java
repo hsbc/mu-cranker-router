@@ -26,10 +26,8 @@ import static com.hsbc.cranker.mucranker.BaseEndToEndTest.preferredProtocols;
 import static io.muserver.MuServerBuilder.httpServer;
 import static io.muserver.MuServerBuilder.httpsServer;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.*;
 import static org.hamcrest.core.IsEqual.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static scaffolding.Action.swallowException;
@@ -204,9 +202,12 @@ public class HttpTest {
             assertThat(rh.get("Host"), contains(router.uri().getAuthority()));
         }
         assertThat(rh.get("Forwarded"), hasSize(1));
-        assertThat(rh.get("Forwarded").get(0), endsWith(";for=127.0.0.1;host=\"" + router.uri().getAuthority() + "\";proto=https"));
+        assertThat(rh.get("Forwarded").get(0), anyOf(
+            endsWith(";for=127.0.0.1;host=\"" + router.uri().getAuthority() + "\";proto=https"),
+            endsWith(";for=\"0:0:0:0:0:0:0:1\";host=\"" + router.uri().getAuthority() + "\";proto=https")
+        ));
         assertThat(rh.get("X-Forwarded-Proto"), contains("https"));
-        assertThat(rh.get("X-Forwarded-For"), contains("127.0.0.1"));
+        assertThat(rh.get("X-Forwarded-For"), anyOf(contains("127.0.0.1"), contains("0:0:0:0:0:0:0:1")));
         assertThat(rh.get("X-Forwarded-Host"), contains(router.uri().getAuthority()));
         assertThat(rh.get("User-Agent"), contains("the-agent-specified-by-the-client"));
         if (ClientUtils.jdkHttpClientSupportsHeader("via")) {

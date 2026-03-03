@@ -84,7 +84,7 @@ class CrankerMuHandler implements MuHandler {
         }
 
         String target = clientRequest.uri().getPath();
-        String domain = clientRequest.uri().getHost();
+        String domain = clientRequest.connection().sniHostName().orElse(clientRequest.uri().getHost());
         AsyncHandle asyncHandle = clientRequest.handleAsync();
 
         // try route by domain

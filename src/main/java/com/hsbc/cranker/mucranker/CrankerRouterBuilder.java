@@ -8,8 +8,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static java.util.Collections.emptyList;
-
 /**
  * Use {@link #crankerRouter()} to create a builder where you can configure your cranker router options.
  * The {@link #start()} method returns a {@link CrankerRouter} object which can be used to create handlers
@@ -26,7 +24,8 @@ public class CrankerRouterBuilder {
     private long pingAfterWriteMillis = 10000;
     private long idleReadTimeoutMills = 60000;
     private long routesKeepTimeMillis = 2 * 60 * 60 * 1000L;
-    private List<ProxyListener> completionListeners = emptyList();
+    private List<ProxyListener> completionListeners = new ArrayList<>();
+    private final Set<String> proxyListenerKeys = new HashSet<>();
     private RouteResolver routeResolver;
     private List<String> supportedCrankerProtocol = List.of("1.0", "3.0");
     private Function<MuRequest, String> clientIpProvider = MuRequest::remoteAddress;
@@ -184,14 +183,39 @@ public class CrankerRouterBuilder {
     }
 
     /**
-     * Registers proxy listeners to be called before, during and after requests are processed.
+     * Replaces all proxy listeners with the supplied list.
+     * <p>Listeners retain the supplied order, and previously registered listener keys are cleared.
+     * The list is copied; later changes to it do not affect this builder or routers already started.</p>
      *
-     * @param proxyListeners The listeners to add.
+     * @param proxyListeners The non-null listeners to register.
      * @return This builder
      */
     public CrankerRouterBuilder withProxyListeners(List<ProxyListener> proxyListeners) {
         Mutils.notNull("proxyListeners", proxyListeners);
-        this.completionListeners = proxyListeners;
+        this.completionListeners = new ArrayList<>(List.copyOf(proxyListeners));
+        this.proxyListenerKeys.clear();
+        return this;
+    }
+
+    /**
+     * Appends a proxy listener without replacing existing listeners.
+     * <p>Use this to add request/response observers, header customisation or instrumentation
+     * independently of other application listeners. Callbacks run in registration order;
+     * override only the events needed. See {@link ProxyListener} for the available lifecycle hooks.</p>
+     * <p>A null key always adds an independent registration, even for the same listener instance.
+     * For a non-null key, the first registration wins without moving it. Keys belong to this builder,
+     * survive {@link #start()}, and are cleared by {@link #withProxyListeners(List)}.
+     * Already started routers retain their own listener-list snapshots.</p>
+     *
+     * @param key A stable registration key, or null for an unkeyed registration.
+     * @param proxyListener The non-null listener to append if the key is null or absent.
+     * @return This builder
+     */
+    public CrankerRouterBuilder addProxyListener(String key, ProxyListener proxyListener) {
+        Mutils.notNull("proxyListener", proxyListener);
+        if (key == null || this.proxyListenerKeys.add(key)) {
+            this.completionListeners.add(proxyListener);
+        }
         return this;
     }
 
@@ -243,7 +267,8 @@ public class CrankerRouterBuilder {
 
 
     /**
-     * Create a newly created CrankerRouter object
+     * Creates a new router with an independent snapshot of the current listener registrations.
+     * <p>Later builder changes do not affect previously started routers.</p>
      * @return A newly created CrankerRouter object
      */
     public CrankerRouter start() {
@@ -253,7 +278,7 @@ public class CrankerRouterBuilder {
         WebSocketFarm webSocketFarm = new WebSocketFarm(routeResolver, maxWaitInMillis);
         WebSocketFarmV3Holder webSocketFarmV3Holder = new WebSocketFarmV3Holder(routeResolver);
         webSocketFarm.start();
-        List<ProxyListener> completionListeners = this.completionListeners.isEmpty() ? emptyList() : new ArrayList<>(this.completionListeners);
+        List<ProxyListener> completionListeners = List.copyOf(this.completionListeners);
         DarkModeManager darkModeManager = new DarkModeManagerImpl(webSocketFarm);
         return new CrankerRouterImpl(ipValidator, discardClientForwardedHeaders,
             sendLegacyForwardedHeaders, viaValue, doNotProxy, webSocketFarm, webSocketFarmV3Holder,

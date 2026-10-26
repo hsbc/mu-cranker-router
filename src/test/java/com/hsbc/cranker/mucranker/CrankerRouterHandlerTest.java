@@ -174,7 +174,7 @@ public class CrankerRouterHandlerTest {
             fail("it should throw exception");
         } catch (Throwable throwable) {
             assertThat(throwable.getClass().getName(), is("java.lang.IllegalArgumentException"));
-            assertThat(throwable.getMessage(), is("Routes must contain only letters, numbers, underscores or hyphens"));
+            assertThat(throwable.getMessage(), is("Routes must contain only letters, numbers, slashes, dots, underscores or hyphens; path segments cannot end with a dot or contain two consecutive dots"));
         } finally {
             if (connector != null) connector.stop(5, TimeUnit.SECONDS);
         }

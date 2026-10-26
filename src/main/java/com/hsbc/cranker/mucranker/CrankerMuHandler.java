@@ -84,6 +84,9 @@ class CrankerMuHandler implements MuHandler {
         }
 
         String target = clientRequest.uri().getPath();
+        for (ProxyListener proxyListener : proxyListeners) {
+            proxyListener.onRequestReceived(clientRequest, clientResponse);
+        }
         String domain = clientRequest.connection().sniHostName().orElse(clientRequest.uri().getHost());
         AsyncHandle asyncHandle = clientRequest.handleAsync();
 

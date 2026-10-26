@@ -1,6 +1,8 @@
 package com.hsbc.cranker.mucranker;
 
 import io.muserver.Headers;
+import io.muserver.MuRequest;
+import io.muserver.MuResponse;
 
 import jakarta.ws.rs.WebApplicationException;
 import java.nio.ByteBuffer;
@@ -8,12 +10,43 @@ import java.util.List;
 
 /**
  * Hooks to intercept, change and observe the proxying of requests from a client to a target and back.
- * <p>Register listeners when constructor the router with the {@link CrankerRouterBuilder#withProxyListeners(List)}
- * method.</p>
+ * <p>Use these callbacks to inspect requests and responses, customise outgoing headers, or record
+ * request-local diagnostics. Register listeners with
+ * {@link CrankerRouterBuilder#addProxyListener(String, ProxyListener)} or replace them with
+ * {@link CrankerRouterBuilder#withProxyListeners(List)}. Callbacks run in registration order.</p>
+ * <p>Listeners are shared across concurrent requests. Store per-request state in request attributes rather
+ * than listener fields; later callbacks may execute on different threads.</p>
  * <p><strong>Note:</strong> the default implementation of each method is a no-op operation, so you can just
  * override the events you are interested in.</p>
  */
 public interface ProxyListener {
+
+    /**
+     * Called when an HTTP request enters proxy processing, before routing or connector acquisition.
+     * <p>Use this to observe requests even when no connector is available, start timing that includes
+     * socket acquisition, or capture the current tracing or logging context before asynchronous handoff.
+     * Store per-request state with {@link MuRequest#attribute(String, Object)}; later callbacks can
+     * read it through {@link ProxyInfo#request()}. To change the outgoing request headers, use
+     * {@link #onBeforeProxyToTarget(ProxyInfo, Headers)} instead.</p>
+     * <p>This callback runs synchronously on the original HTTP handler thread, before asynchronous
+     * handling, route selection or socket acquisition begins. Later callbacks may run on another thread.</p>
+     *
+     * <p>Called once per HTTP proxy-handler attempt for both Cranker protocols, including attempts that
+     * subsequently fail to acquire a socket or find a route. Registration requests handled by the registration
+     * handler, requests handled by an earlier application handler, and TRACE rejections do not invoke this hook.
+     * It is not called again when routing falls back between protocols or catch-all routes.</p>
+     *
+     * <p>Do not consume the request body, start asynchronous handling, write a response, or retain a thread-local
+     * scope across callbacks. Return promptly. A thrown exception stops the remaining early callbacks and all
+     * proxy dispatch, and propagates to Mu Server's normal exception handling. Since no connector
+     * acquisition or proxy dispatch has begun, neither {@link #onComplete(ProxyInfo)} nor
+     * {@link #onFailureToAcquireProxySocket(ProxyInfo)} is invoked for this failure.</p>
+     *
+     * @param request The client's request, whose attributes are shared with subsequent proxy callbacks.
+     * @param response The router's response to the client.
+     * @throws WebApplicationException To reject the request before connector acquisition.
+     */
+    default void onRequestReceived(MuRequest request, MuResponse response) throws WebApplicationException {}
 
     /**
      * This is called before sending a request to the target service
